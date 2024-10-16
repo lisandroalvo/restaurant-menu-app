@@ -16,14 +16,21 @@ var database = firebase.database();
 
 // Function to play notification sound
 function playNotificationSound() {
-    var audio = new Audio('notification.wav'); // Ensure this matches the file name exactly
-    audio.play().then(() => {
-        console.log('Audio played successfully');
-    }).catch(error => {
-        console.error('Error playing audio:', error);
-    });
-}
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
+    fetch('notification-sound.mp3')
+        .then(response => response.arrayBuffer())
+        .then(buffer => audioContext.decodeAudioData(buffer))
+        .then(decodedData => {
+            const source = audioContext.createBufferSource();
+            source.buffer = decodedData;
+            source.connect(audioContext.destination);
+            source.start(0);
+        })
+        .catch(error => {
+            console.error('Error playing audio:', error);
+        });
+}
 // Function to listen for updates and play sound
 function listenForOrderUpdates() {
     database.ref('orders').on('child_changed', function(snapshot) {
