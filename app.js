@@ -13,19 +13,22 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
+
 // Function to play notification sound
 function playNotificationSound() {
-    var audio = new Audio('notification.wav'); // Make sure the path is correct and matches the file name
-    audio.play().catch(error => {
+    var audio = new Audio('notification.wav'); // Ensure this matches the file name exactly
+    audio.play().then(() => {
+        console.log('Audio played successfully');
+    }).catch(error => {
         console.error('Error playing audio:', error);
     });
 }
 
-// Function to listen for order updates on the client side
+// Function to listen for updates and play sound
 function listenForOrderUpdates() {
     database.ref('orders').on('child_changed', function(snapshot) {
         var updatedOrder = snapshot.val();
-        console.log(`Order updated: ${updatedOrder.status}`); // Check if this logs in the console
+        console.log(`Order updated: ${updatedOrder.status}`);
 
         // Play the notification sound when the order status is updated
         playNotificationSound();
@@ -37,7 +40,6 @@ document.getElementById('enable-sound').addEventListener('click', function() {
     listenForOrderUpdates();
     alert('Notifications are enabled!');
 });
-
 
 // Cart data
 let cart = [];
@@ -97,3 +99,13 @@ function listenForOrderUpdates(orderKey) {
     });
 }
 
+
+
+document.getElementById('enable-sound').addEventListener('click', function() {
+    var audio = new Audio('notification.wav');
+    audio.play().then(() => {
+        console.log('Audio played successfully');
+    }).catch(error => {
+        console.error('Error playing audio:', error);
+    });
+});
