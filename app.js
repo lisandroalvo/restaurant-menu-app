@@ -30,15 +30,15 @@ function listenForOrderUpdates() {
         var updatedOrder = snapshot.val();
         console.log(`Order updated: ${updatedOrder.status}`);
 
-        // Play the notification sound when the order status is updated
+        // Play the notification sound immediately when the order status is updated
         playNotificationSound();
     });
 }
 
-// Ensure the user interacts with the page first to allow audio playback
+// Enable notifications after the user clicks the button once
 document.getElementById('enable-sound').addEventListener('click', function() {
-    listenForOrderUpdates();
     alert('Notifications are enabled!');
+    listenForOrderUpdates(); // Start listening for updates after button click
 });
 
 // Cart data
