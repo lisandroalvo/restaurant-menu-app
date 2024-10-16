@@ -1,0 +1,32 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f9;
+}
+header {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    padding: 1em;
+}
+.menu-item {
+    padding: 1em;
+    margin: 1em;
+    background-color: white;
+    border-radius: 5px;
+}
+.cart {
+    background-color: #f5f5f5;
+    padding: 1em;
+    margin: 1em;
+}
+footer {
+    text-align: center;
+    background-color: #333;
+    color: white;
+    padding: 1em;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
