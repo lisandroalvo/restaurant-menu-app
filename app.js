@@ -75,15 +75,20 @@ function requestLocationForOrder(callback) {
             var userLatitude = position.coords.latitude;
             var userLongitude = position.coords.longitude;
 
-            // Log the user's current location to the console
-            console.log("User's location: ", userLatitude, userLongitude);
-            alert(`Your current location: Latitude: ${userLatitude}, Longitude: ${userLongitude}`); // Display location for debugging
+            // Log the user's current location
+            console.log("User's location: Latitude: ", userLatitude, " Longitude: ", userLongitude);
+            alert(`Your current location: Latitude: ${userLatitude}, Longitude: ${userLongitude}`);
 
+            // Proceed with proximity check
             checkProximity(userLatitude, userLongitude, callback);
         }, function(error) {
             console.error("Error getting location: ", error.message);
-            alert("Error getting location: " + error.message); // Display error to the user
+            alert("Error getting location: " + error.message);
             callback(false); // Block order placement if location can't be retrieved
+        }, {
+            enableHighAccuracy: true, // Try to get the most accurate location possible
+            timeout: 5000, // Wait up to 5 seconds for the location
+            maximumAge: 0 // Do not use cached location
         });
     } else {
         alert("Geolocation is not supported by this browser.");
