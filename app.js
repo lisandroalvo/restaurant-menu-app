@@ -75,10 +75,14 @@ function requestLocationForOrder(callback) {
             var userLatitude = position.coords.latitude;
             var userLongitude = position.coords.longitude;
 
+            // Log the user's current location to the console
             console.log("User's location: ", userLatitude, userLongitude);
+            alert(`Your current location: Latitude: ${userLatitude}, Longitude: ${userLongitude}`); // Display location for debugging
+
             checkProximity(userLatitude, userLongitude, callback);
         }, function(error) {
             console.error("Error getting location: ", error.message);
+            alert("Error getting location: " + error.message); // Display error to the user
             callback(false); // Block order placement if location can't be retrieved
         });
     } else {
@@ -86,6 +90,7 @@ function requestLocationForOrder(callback) {
         callback(false); // Block order placement if geolocation is not supported
     }
 }
+
 
 // Cart data
 let cart = [];
