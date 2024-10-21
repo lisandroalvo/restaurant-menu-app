@@ -14,6 +14,12 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
+// Get the tableId from the URL query parameters
+function getTableId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
+}
+
 // Session expiration: Set to 1 minute (60,000 milliseconds)
 const SESSION_DURATION = 60 * 1000; // 1 minute
 
@@ -75,22 +81,24 @@ function updateCart() {
 // Submit order to Firebase only if session is valid
 function submitOrder() {
     if (isSessionValid()) {
+        const tableId = getTableId(); // Get the tableId from the URL
         var newOrderRef = database.ref('orders').push();
         var orderKey = newOrderRef.key;
 
         newOrderRef.set({
             order: cart,
             total: total,
+            tableId: tableId,  // Include tableId in the order data
             status: "pending",
             timestamp: new Date().toLocaleString()
         });
 
-        alert('Order submitted!');
+        alert(`Order submitted from Table ${tableId}!`);
         listenForOrderUpdates(orderKey);
 
         cart = [];
         total = 0;
-        updateCart();  // Clear the cart display
+        updateCart();
     } else {
         alert("Your session has expired. Please re-scan the QR code to continue ordering.");
         document.getElementById('orderButton').disabled = true; // Disable order button
