@@ -21,7 +21,7 @@ function getTableId() {
 }
 
 // Session expiration: Set to 1 minute (60,000 milliseconds)
-const SESSION_DURATION = 60 * 1000; // 1 minute
+const SESSION_DURATION = 60 * 10000; // 10 minute
 
 // Start the session and set a timer for expiration
 function startSession() {
