@@ -20,14 +20,15 @@ function getTableId() {
     return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
 }
 
-// Session expiration: Set to 1 minute (60,000 milliseconds)
-const SESSION_DURATION = 60 * 10000; // 10 minute
+// Session expiration: Set to 10 minutes (600,000 milliseconds)
+const SESSION_DURATION = 10 * 60 * 1000; // 10 minutes
 
 // Start the session and set a timer for expiration
 function startSession() {
     const sessionStart = Date.now();
-    localStorage.setItem('sessionStart', sessionStart);
-    alert('QR code scanned! You have 1 minute to place your order.');
+    localStorage.setItem('sessionStart', sessionStart.toString());  // Store sessionStart as a string
+    console.log("Session started at:", new Date(sessionStart).toLocaleTimeString());
+    alert('QR code scanned! You have 10 minutes to place your order.');
     
     // Enable order button at session start
     document.getElementById('orderButton').disabled = false;
@@ -36,10 +37,17 @@ function startSession() {
 // Check if the session is valid
 function isSessionValid() {
     const sessionStart = localStorage.getItem('sessionStart');
-    if (!sessionStart) return false;
+    if (!sessionStart) {
+        console.log("No sessionStart found.");
+        return false;
+    }
 
     const currentTime = Date.now();
-    return currentTime - sessionStart < SESSION_DURATION;
+    const sessionDuration = currentTime - parseInt(sessionStart); // Ensure the value is correctly parsed as an integer
+
+    console.log("Session duration:", sessionDuration / 1000, "seconds");
+
+    return sessionDuration < SESSION_DURATION;
 }
 
 // Function to disable the order button once the session expires
