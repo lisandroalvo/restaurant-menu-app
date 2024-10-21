@@ -108,19 +108,19 @@ function submitOrder() {
                     var orderKey = newOrderRef.key;
 
                     newOrderRef.set({
-                        order: cart,
-                        total: total,
-                        status: "pending",  // Initial status
+                        order: cart,     // Send the current cart
+                        total: total,    // Send the total amount
+                        status: "pending",
                         timestamp: new Date().toLocaleString()
                     });
 
                     alert('Order submitted successfully!');
                     listenForOrderUpdates(orderKey); // Start listening for updates on this order
 
-                    // Reset cart
+                    // Reset cart after submission
                     cart = [];
                     total = 0;
-                    updateCart();
+                    updateCart(); // Clear the cart display
                 } else {
                     alert("You have left the restaurant area. You cannot place an order.");
                 }
@@ -136,26 +136,33 @@ function submitOrder() {
     }
 }
 
-// Cart management functions
+// Cart data
 let cart = [];
 let total = 0;
 
+// Function to add an item to the cart
 function addToCart(item, price) {
     cart.push({ item, price });
     total += price;
-    updateCart();
+    updateCart(); // Update the cart display after adding an item
 }
 
+// Function to update the cart display in the DOM
 function updateCart() {
     const cartItems = document.getElementById('cart-items');
-    cartItems.innerHTML = '';
+    cartItems.innerHTML = ''; // Clear the current list
+
+    // Add each item in the cart to the display
     cart.forEach(c => {
         let li = document.createElement('li');
-        li.innerText = `${c.item} - $${c.price}`;
+        li.innerText = `${c.item} - $${c.price.toFixed(2)}`;
         cartItems.appendChild(li);
     });
-    document.getElementById('total-price').innerText = total;
+
+    // Update the total price display
+    document.getElementById('total-price').innerText = `Total: $${total.toFixed(2)}`;
 }
+
 
 // Listen for updates on a specific order
 function listenForOrderUpdates(orderKey) {
