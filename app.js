@@ -1,6 +1,6 @@
 // Firebase Configuration
 var firebaseConfig = {
-    apiKey: "AIzaSyD3hZhuyc1TnpZV6rEpuJH8zJ6bIuaOTg",
+    apiKey: "AIzaSyD3hZhuy9c1TnpZV6rEpuJH8zJ6bIuaOTg",
     authDomain: "restaurant-x-7baa2.firebaseapp.com",
     databaseURL: "https://restaurant-x-7baa2-default-rtdb.firebaseio.com/",
     projectId: "restaurant-x-7baa2",
@@ -13,39 +13,6 @@ var firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
-
-// Session expiration time: 10 minutes
-const SESSION_DURATION = 10 * 60 * 1000; 
-
-// Start the session when the QR code is scanned
-function startSession() {
-    const sessionStart = Date.now();
-    localStorage.setItem('sessionStart', sessionStart);
-    alert('QR code scanned! You have 10 minutes to place your order.');
-    document.getElementById('orderButton').disabled = false; // Enable order button at session start
-}
-
-// Check if session is still valid
-function isSessionValid() {
-    const sessionStart = localStorage.getItem('sessionStart');
-    if (!sessionStart) return false;
-
-    const currentTime = Date.now();
-    return currentTime - sessionStart < SESSION_DURATION;
-}
-
-// Disable order button once session expires
-function checkSessionExpiration() {
-    if (!isSessionValid()) {
-        alert('Your session has expired. Please re-scan the QR code to place an order.');
-        document.getElementById('orderButton').disabled = true;  // Disable order button
-    }
-}
-
-// Start periodic session expiration check
-function startSessionExpirationCheck() {
-    setInterval(checkSessionExpiration, 1000);  // Check every second
-}
 
 // Cart data
 let cart = [];
@@ -61,36 +28,46 @@ function addToCart(item, price) {
 // Update cart display
 function updateCart() {
     const cartItems = document.getElementById('cart-items');
-    cartItems.innerHTML = '';
+    cartItems.innerHTML = '';  // Clear previous cart display
+
     cart.forEach(c => {
         let li = document.createElement('li');
         li.innerText = `${c.item} - $${c.price}`;
         cartItems.appendChild(li);
     });
+
     document.getElementById('total-price').innerText = total.toFixed(2);
 }
 
-// Submit order to Firebase, only if session is valid
+// Submit order to Firebase
 function submitOrder() {
-    if (isSessionValid()) {
-        var newOrderRef = database.ref('orders').push();
-        var orderKey = newOrderRef.key;
+    var newOrderRef = database.ref('orders').push();
+    var orderKey = newOrderRef.key;
 
-        newOrderRef.set({
-            order: cart,
-            total: total,
-            status: "pending",
-            timestamp: new Date().toLocaleString()
-        });
+    newOrderRef.set({
+        order: cart,
+        total: total,
+        status: "pending",
+        timestamp: new Date().toLocaleString()
+    });
 
-        alert('Order submitted successfully!');
-        cart = [];
-        total = 0;
-        updateCart();
-    } else {
-        alert('Your session has expired. Please re-scan the QR code to continue ordering.');
-        document.getElementById('orderButton').disabled = true; // Disable order button
-    }
+    alert('Order submitted successfully!');
+    cart = [];
+    total = 0;
+    updateCart();
+
+    listenForOrderUpdates(orderKey);  // Start listening for order status updates
+}
+
+// Function to listen for updates on a specific order
+function listenForOrderUpdates(orderKey) {
+    console.log(`Listening for updates on order: ${orderKey}`);
+    database.ref('orders/' + orderKey + '/status').on('value', function(snapshot) {
+        var newStatus = snapshot.val();
+        if (newStatus) {
+            alert(`Your order status has been updated: ${newStatus}`);
+        }
+    });
 }
 
 // Enable notifications after user clicks the button
@@ -98,8 +75,19 @@ document.getElementById('enable-sound').addEventListener('click', function() {
     alert('Notifications are enabled!');
 });
 
-// When QR code is scanned, start the session and check for expiration
-function onQRCodeScanned() {
-    startSession();  // Start the session
-    startSessionExpirationCheck();  // Start checking if session expired
+// Function to play notification sound when order status is updated
+function playNotificationSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    fetch('notification-sound.mp3')
+        .then(response => response.arrayBuffer())
+        .then(buffer => audioContext.decodeAudioData(buffer))
+        .then(decodedData => {
+            const source = audioContext.createBufferSource();
+            source.buffer = decodedData;
+            source.connect(audioContext.destination);
+            source.start(0);
+        })
+        .catch(error => {
+            console.error('Error playing audio:', error);
+        });
 }
