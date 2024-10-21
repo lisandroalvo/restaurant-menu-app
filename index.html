@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Our Restaurant</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f8f8;
+        }
+        img {
+            width: 300px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Restaurant Logo -->
+    <img src="logo.png" alt="Restaurant Logo" id="logo">
+
+    <!-- Redirect script -->
+    <script>
+        setTimeout(function(){
+            window.location.href = "menu.html"; // Change this to your menu page
+        }, 3000); // 3000 milliseconds = 3 seconds
+    </script>
+
+</body>
+</html>
