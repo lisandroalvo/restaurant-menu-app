@@ -31,70 +31,109 @@ function playNotificationSound() {
         });
 }
 
-// Function to calculate distance between two points (Haversine formula)
+
+// Function to start a session when the QR code is scanned
+function startSession() {
+    const sessionStart = Date.now();
+    localStorage.setItem('sessionStart', sessionStart);
+}
+
+// Function to check if the session is valid (e.g., 1-hour limit)
+function isSessionValid() {
+    const sessionStart = localStorage.getItem('sessionStart');
+    const sessionDuration = 60 * 60 * 1000; // 1 hour in milliseconds
+    return Date.now() - sessionStart < sessionDuration;
+}
+
+// Function to submit the order, only if the session is valid
+function submitOrder() {
+    if (isSessionValid()) {
+        // Allow order placement
+        alert("Order placed successfully.");
+        // Call Firebase order submission logic here
+    } else {
+        alert("Your session has expired. Please re-scan the QR code to continue ordering.");
+    }
+}
+
+// Restaurant's coordinates (replace with the actual coordinates of the restaurant)
+const restaurantLat = 40.712776; 
+const restaurantLon = -74.005974; 
+const maxDistance = 0.05; // 50 meters in kilometers
+
+// Function to calculate the distance between two points (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
     var R = 6371; // Radius of the Earth in kilometers
     var dLat = deg2rad(lat2 - lat1);
     var dLon = deg2rad(lon2 - lon1);
-    var a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     var distance = R * c; // Distance in kilometers
     return distance;
 }
 
-// Convert degrees to radians
 function deg2rad(deg) {
     return deg * (Math.PI / 180);
 }
 
-// Check if user is within 50 meters (0.05 km) of the restaurant
-function checkProximity(userLat, userLon, callback) {
-    var restaurantLat = 40.712776; // Replace with your restaurant's latitude
-    var restaurantLon = -74.005974; // Replace with your restaurant's longitude
-    var maxDistance = 0.05; // 50 meters in kilometers
-
+// Function to check if the user is still within the restaurant's proximity
+function checkProximity(userLat, userLon) {
     var distance = calculateDistance(userLat, userLon, restaurantLat, restaurantLon);
-
-    if (distance <= maxDistance) {
-        console.log("User is close enough to place an order.");
-        callback(true); // Allow order placement
-    } else {
-        console.log("User is too far to place an order.");
-        alert("You must be within 50 meters of the restaurant to place an order.");
-        callback(false); // Block order placement
-    }
+    return distance <= maxDistance;
 }
 
-// Get user's location using Geolocation API before placing the order
-function requestLocationForOrder(callback) {
+// Function to track the user's location periodically
+function trackUserLocation() {
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            var userLatitude = position.coords.latitude;
-            var userLongitude = position.coords.longitude;
+        navigator.geolocation.watchPosition(function(position) {
+            const userLat = position.coords.latitude;
+            const userLon = position.coords.longitude;
 
-            // Log the user's current location
-            console.log("User's location: Latitude: ", userLatitude, " Longitude: ", userLongitude);
-            alert(`Your current location: Latitude: ${userLatitude}, Longitude: ${userLongitude}`);
-
-            // Proceed with proximity check
-            checkProximity(userLatitude, userLongitude, callback);
+            if (!checkProximity(userLat, userLon)) {
+                alert("You have left the restaurant area. You cannot place further orders.");
+                // Disable order button
+                document.getElementById('orderButton').disabled = true;
+            }
         }, function(error) {
-            console.error("Error getting location: ", error.message);
-            alert("Error getting location: " + error.message);
-            callback(false); // Block order placement if location can't be retrieved
-        }, {
-            enableHighAccuracy: true, // Try to get the most accurate location possible
-            timeout: 5000, // Wait up to 5 seconds for the location
-            maximumAge: 0 // Do not use cached location
+            console.error("Error tracking location: ", error.message);
         });
     } else {
         alert("Geolocation is not supported by this browser.");
-        callback(false); // Block order placement if geolocation is not supported
     }
 }
+
+// Call this function after scanning the QR code
+function startLocationTracking() {
+    trackUserLocation(); // Start tracking user location
+}
+
+function submitOrder() {
+    if (isSessionValid()) {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const userLat = position.coords.latitude;
+                const userLon = position.coords.longitude;
+
+                if (checkProximity(userLat, userLon)) {
+                    // Allow order placement
+                    alert("Order placed successfully.");
+                    // Call Firebase order submission logic here
+                } else {
+                    alert("You have left the restaurant area. You cannot place an order.");
+                }
+            }, function(error) {
+                console.error("Error getting location: ", error.message);
+                alert("Error retrieving your location. Please enable location services.");
+            });
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    } else {
+        alert("Your session has expired. Please re-scan the QR code to continue ordering.");
+    }
+}
+
+
 
 
 // Cart data
