@@ -1,3 +1,4 @@
+// Your Firebase configuration
 var firebaseConfig = {
     apiKey: "AIzaSyD3hZhuy9c1TnpZV6rEpuJH8zJ6bIuaOTg",
     authDomain: "restaurant-x-7baa2.firebaseapp.com",
@@ -13,40 +14,30 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
+// Set session expiration to 1 minute (60,000 milliseconds)
+const SESSION_DURATION = 60 * 1000; // 1 minute
 
-// Function to play notification sound
-function playNotificationSound() {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+// Start the session and set a timer for expiration
+function startSession() {
+    const sessionStart = Date.now();
+    localStorage.setItem('sessionStart', sessionStart);
+    alert('QR code scanned! You have 1 minute to place your order.');
 
-    fetch('notification-sound.mp3')
-        .then(response => response.arrayBuffer())
-        .then(buffer => audioContext.decodeAudioData(buffer))
-        .then(decodedData => {
-            const source = audioContext.createBufferSource();
-            source.buffer = decodedData;
-            source.connect(audioContext.destination);
-            source.start(0);
-        })
-        .catch(error => {
-            console.error('Error playing audio:', error);
-        });
-}
-// Function to listen for updates and play sound
-function listenForOrderUpdates() {
-    database.ref('orders').on('child_changed', function(snapshot) {
-        var updatedOrder = snapshot.val();
-        console.log(`Order updated: ${updatedOrder.status}`);
-
-        // Play the notification sound immediately when the order status is updated
-        playNotificationSound();
-    });
+    // Set a timeout to expire session after 1 minute
+    setTimeout(function () {
+        alert('Your session has expired. Please re-scan the QR code to place an order.');
+        document.getElementById('orderButton').disabled = true; // Disable order button
+    }, SESSION_DURATION);
 }
 
-// Enable notifications after the user clicks the button once
-document.getElementById('enable-sound').addEventListener('click', function() {
-    alert('Notifications are enabled!');
-    listenForOrderUpdates(); // Start listening for updates after button click
-});
+// Check if the session is valid
+function isSessionValid() {
+    const sessionStart = localStorage.getItem('sessionStart');
+    if (!sessionStart) return false;
+
+    const currentTime = Date.now();
+    return currentTime - sessionStart < SESSION_DURATION;
+}
 
 // Cart data
 let cart = [];
@@ -71,34 +62,34 @@ function updateCart() {
     document.getElementById('total-price').innerText = total;
 }
 
-// Submit order to Firebase and start listening for updates
+// Submit order to Firebase only if session is valid
 function submitOrder() {
-    var newOrderRef = database.ref('orders').push();
-    var orderKey = newOrderRef.key; // Get the unique key of the newly created order
+    if (isSessionValid()) {
+        var newOrderRef = database.ref('orders').push();
+        var orderKey = newOrderRef.key;
 
-    newOrderRef.set({
-        order: cart,
-        total: total,
-        status: "pending",  // Initial status
-        timestamp: new Date().toLocaleString()
-    });
+        newOrderRef.set({
+            order: cart,
+            total: total,
+            status: "pending",
+            timestamp: new Date().toLocaleString()
+        });
 
-    alert('Order submitted!');
-    
-    // Start listening for updates to this specific order
-    listenForOrderUpdates(orderKey);
+        alert('Order submitted!');
+        listenForOrderUpdates(orderKey);
 
-    // Reset cart after submission
-    cart = [];
-    total = 0;
-    updateCart();
+        cart = [];
+        total = 0;
+        updateCart();
+    } else {
+        alert("Your session has expired. Please re-scan the QR code to continue ordering.");
+    }
 }
 
-// Function to listen for status updates on a specific order
+// Function to listen for updates on a specific order
 function listenForOrderUpdates(orderKey) {
     console.log(`Listening for updates on order: ${orderKey}`);
     database.ref('orders/' + orderKey + '/status').on('value', function(snapshot) {
-        console.log('Snapshot value:', snapshot.val());
         var newStatus = snapshot.val();
         if (newStatus) {
             alert(`Your order status has been updated: ${newStatus}`);
@@ -106,27 +97,8 @@ function listenForOrderUpdates(orderKey) {
     });
 }
 
-
-
-document.getElementById('enable-sound').addEventListener('click', function() {
-    var audio = new Audio('notification.wav');
-    audio.play().then(() => {
-        console.log('Audio played successfully');
-    }).catch(error => {
-        console.error('Error playing audio:', error);
-    });
-});
-
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(position) {
-        var userLatitude = position.coords.latitude;
-        var userLongitude = position.coords.longitude;
-
-        console.log("User's location: ", userLatitude, userLongitude);
-        checkProximity(userLatitude, userLongitude);
-    }, function(error) {
-        console.error("Error getting location: ", error.message);
-    });
-} else {
-    alert("Geolocation is not supported by this browser.");
+// When QR code is scanned, start the session and timer
+function onQRCodeScanned() {
+    startSession();
+    document.getElementById('orderButton').disabled = false;  // Enable order button
 }
