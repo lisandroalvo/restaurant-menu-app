@@ -38,16 +38,17 @@ function startSession() {
 function isSessionValid() {
     const sessionStart = localStorage.getItem('sessionStart');
     if (!sessionStart) {
-        console.log("No sessionStart found.");
+        console.log("No sessionStart found in localStorage.");
         return false;
     }
 
     const currentTime = Date.now();
     const sessionDuration = currentTime - parseInt(sessionStart); // Ensure the value is correctly parsed as an integer
 
-    console.log("Session duration:", sessionDuration / 1000, "seconds");
+    console.log("Session duration in milliseconds:", sessionDuration, "Session expires after:", SESSION_DURATION);
+    console.log("Session duration in minutes:", sessionDuration / (60 * 1000));  // Log in minutes for easier debugging
 
-    return sessionDuration < SESSION_DURATION;
+    return sessionDuration < SESSION_DURATION; // Return whether the session is still valid
 }
 
 // Function to disable the order button once the session expires
@@ -55,11 +56,13 @@ function checkSessionExpiration() {
     if (!isSessionValid()) {
         alert('Your session has expired. Please re-scan the QR code to place an order.');
         document.getElementById('orderButton').disabled = true;  // Disable order button
+        console.log("Session expired, disabling order button.");
     }
 }
 
 // Function to periodically check session validity
 function startSessionExpirationCheck() {
+    console.log("Starting session expiration checks.");
     setInterval(checkSessionExpiration, 1000);  // Check every second
 }
 
@@ -110,6 +113,7 @@ function submitOrder() {
     } else {
         alert("Your session has expired. Please re-scan the QR code to continue ordering.");
         document.getElementById('orderButton').disabled = true; // Disable order button
+        console.log("Attempted to submit order but session had expired.");
     }
 }
 
