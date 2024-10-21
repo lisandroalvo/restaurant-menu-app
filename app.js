@@ -14,8 +14,7 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
-// Session expiration time: 10 minutes
-const SESSION_DURATION = 10 * 60 * 1000;
+
 
 // Start the session when the QR code is scanned
 function startSession() {
