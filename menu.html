@@ -6,8 +6,7 @@
     <title>Restaurant Menu</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
 
@@ -18,20 +17,23 @@
 <section id="menu">
     <div class="menu-item">
         <h3>Burger - $10</h3>
-        <button onclick="addToCart('Burger', 10)">Add to Cart</button>
+        <button id="add-burger" onclick="addToCart('Burger', 10)">Add to Cart</button>
     </div>
     <div class="menu-item">
         <h3>Pizza - $12</h3>
-        <button onclick="addToCart('Pizza', 12)">Add to Cart</button>
+        <button id="add-pizza" onclick="addToCart('Pizza', 12)">Add to Cart</button>
     </div>
 </section>
+
+<!-- Enable notifications -->
 <button id="enable-sound">Enable Notifications</button>
 
+<!-- Cart Section -->
 <section class="cart">
     <h2>Your Order</h2>
     <ul id="cart-items"></ul>
     <p><strong>Total:</strong> $<span id="total-price">0</span></p>
-    <button onclick="submitOrder()">Confirm Order</button>
+    <button id="orderButton" onclick="submitOrder()">Confirm Order</button>
 </section>
 
 <footer>
@@ -39,8 +41,7 @@
 </footer>
 
 <!-- Link to external JavaScript file -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="app.js"></script>
 
+</body>
 </html>
