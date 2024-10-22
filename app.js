@@ -10,9 +10,17 @@ var firebaseConfig = {
     measurementId: "G-9S7EBZ127P"
 };
 
+// Get the tableId from the URL query parameters
+function getTableId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
+}
+
+
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
+
 
 // Cart data
 let cart = [];
@@ -41,23 +49,27 @@ function updateCart() {
 
 // Submit order to Firebase
 function submitOrder() {
+    const tableId = getTableId(); // Get the tableId from the URL
+
     var newOrderRef = database.ref('orders').push();
     var orderKey = newOrderRef.key;
 
     newOrderRef.set({
         order: cart,
         total: total,
+        tableId: tableId,  // Include tableId in the order data
         status: "pending",
         timestamp: new Date().toLocaleString()
     });
 
-    alert('Order submitted successfully!');
+    alert(`Order submitted from Table ${tableId}!`);
     cart = [];
     total = 0;
     updateCart();
 
     listenForOrderUpdates(orderKey);  // Start listening for order status updates
 }
+
 
 // Function to listen for updates on a specific order
 function listenForOrderUpdates(orderKey) {
