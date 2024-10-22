@@ -6,17 +6,18 @@
     <title>Restaurant Logo Intro</title>
     <link rel="stylesheet" href="styles.css">
     <script>
-        // Function to redirect to the menu after a delay, with the tableId
-        function redirectToMenu() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tableId = urlParams.get('tableId'); // Get tableId from the URL
+        // Extract tableId from the URL in index.html
+function redirectToMenu() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableId = urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId
 
-            // Redirect to menu.html with the tableId in the query string
-            window.location.href = `menu.html?tableId=${tableId}`;
-        }
+    // Redirect to menu.html with the tableId included
+    window.location.href = `menu.html?tableId=${tableId}`;
+}
 
-        // Delay the redirection by 3 seconds (3000 milliseconds)
-        setTimeout(redirectToMenu, 3000);
+// After your logo splash screen delay, call this function to redirect
+setTimeout(redirectToMenu, 3000);  // Adjust the delay as needed
+
     </script>
 </head>
 <body>
