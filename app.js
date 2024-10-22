@@ -14,70 +14,6 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
-// Session expiration time: 2 minutes (120,000 milliseconds)
-const SESSION_DURATION = 2 * 60 * 1000;  // 2 minutes in milliseconds
-
-// Start the session when the QR code is scanned
-function startSession() {
-    const sessionStart = Date.now();
-    localStorage.setItem('sessionStart', sessionStart);
-    alert('QR code scanned! You have 2 minutes to place your order.');
-    document.getElementById('orderButton').disabled = false;  // Enable the order button
-}
-
-// Check if the session is still valid
-function isSessionValid() {
-    const sessionStart = localStorage.getItem('sessionStart');
-    if (!sessionStart) return false;
-
-    const currentTime = Date.now();
-    return currentTime - sessionStart < SESSION_DURATION;
-}
-
-// Disable the order button once the session expires
-function checkSessionExpiration() {
-    if (!isSessionValid()) {
-        alert('Your session has expired. Please re-scan the QR code to place an order.');
-        document.getElementById('orderButton').disabled = true;  // Disable the order button
-    }
-}
-
-// Start periodic session expiration check
-function startSessionExpirationCheck() {
-    setInterval(checkSessionExpiration, 1000);  // Check every second
-}
-
-// Submit order to Firebase, only if session is valid
-function submitOrder() {
-    if (isSessionValid()) {
-        var newOrderRef = database.ref('orders').push();
-        var orderKey = newOrderRef.key;
-
-        newOrderRef.set({
-            order: cart,
-            total: total,
-            status: "pending",
-            timestamp: new Date().toLocaleString(),
-            tableId: getTableId() // Include tableId
-        });
-
-        alert('Order submitted successfully!');
-        cart = [];
-        total = 0;
-        updateCart();  // Clear the cart display
-    } else {
-        alert('Your session has expired. Please re-scan the QR code to continue ordering.');
-        document.getElementById('orderButton').disabled = true; // Disable order button
-    }
-}
-
-// When QR code is scanned, start the session and session expiration check
-function onQRCodeScanned() {
-    startSession();  // Start the session
-    startSessionExpirationCheck();  // Start checking if the session expired
-}
-
-
 // Cart data
 let cart = [];
 let total = 0;
@@ -87,6 +23,7 @@ function addToCart(item, price) {
     cart.push({ item, price });
     total += price;
     updateCart();
+    enableOrderButton();  // Enable order button after adding an item to the cart
 }
 
 // Update cart display
@@ -103,32 +40,48 @@ function updateCart() {
     document.getElementById('total-price').innerText = total.toFixed(2);
 }
 
-// Extract tableId from the URL (insert the new code here)
-function getTableId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if tableId is not present
-}
-
-// Use this tableId when submitting the order (insert the new code here)
+// Submit order to Firebase
 function submitOrder() {
-    var tableId = getTableId();  // Fetch tableId from URL
+    const tableId = getTableId(); // Get the tableId from the URL
+
     var newOrderRef = database.ref('orders').push();
     var orderKey = newOrderRef.key;
 
     newOrderRef.set({
         order: cart,
         total: total,
-        tableId: tableId, // Include tableId from URL in the order data
+        tableId: tableId,  // Include tableId in the order data
         status: "pending",
         timestamp: new Date().toLocaleString()
     });
 
-    alert(`Order submitted successfully from Table ${tableId}!`);
+    alert(`Order submitted from Table ${tableId}!`);
     cart = [];
     total = 0;
     updateCart();
 
+    disableOrderButton();  // Disable the order button after submission
     listenForOrderUpdates(orderKey);  // Start listening for order status updates
+}
+
+// Enable order button if cart has items
+function enableOrderButton() {
+    const orderButton = document.getElementById('orderButton');
+    if (cart.length > 0) {
+        orderButton.disabled = false;
+    }
+}
+
+// Disable order button
+function disableOrderButton() {
+    const orderButton = document.getElementById('orderButton');
+    orderButton.disabled = true;
+}
+
+// Extract tableId from the URL
+function getTableId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if tableId is not present
 }
 
 // Function to listen for updates on a specific order
@@ -141,6 +94,11 @@ function listenForOrderUpdates(orderKey) {
         }
     });
 }
+
+// Ensure button is disabled on page load and enable only when items are added
+document.addEventListener('DOMContentLoaded', function () {
+    disableOrderButton();  // Disable the order button initially
+});
 
 // Enable notifications after user clicks the button
 document.getElementById('enable-sound').addEventListener('click', function() {
