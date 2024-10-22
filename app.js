@@ -10,16 +10,15 @@ var firebaseConfig = {
     measurementId: "G-9S7EBZ127P"
 };
 
-// Get the tableId from the URL query parameters
-function getTableId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
-}
-
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
+// Get the tableId from the URL
+function getTableId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
+}
 
 // Cart data
 let cart = [];
@@ -68,7 +67,6 @@ function submitOrder() {
 
     listenForOrderUpdates(orderKey);  // Start listening for order status updates
 }
-
 
 // Function to listen for updates on a specific order
 function listenForOrderUpdates(orderKey) {
