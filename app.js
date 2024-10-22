@@ -16,7 +16,6 @@ function getTableId() {
     return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
 }
 
-
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();

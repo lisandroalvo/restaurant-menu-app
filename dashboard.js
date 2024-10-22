@@ -19,6 +19,37 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
+
+
+// Listen for new orders and display them along with tableId
+database.ref('orders').on('value', function(snapshot) {
+    const ordersList = document.getElementById('orders');
+    ordersList.innerHTML = ''; // Clear current list before adding new orders
+
+    snapshot.forEach(function(orderSnapshot) {
+        var orderData = orderSnapshot.val();
+        var orderKey = orderSnapshot.key;
+
+        // Create a list item to display the order details
+        var li = document.createElement('li');
+        li.innerHTML = `
+            <strong>Order from Table ${orderData.tableId}</strong> <br>
+            Items: ${orderData.order.map(item => item.item).join(', ')} <br>
+            Total: $${orderData.total.toFixed(2)} <br>
+            Status: ${orderData.status} <br>
+            <button onclick="updateOrderStatus('${orderKey}', 'completed')">Mark as Completed</button>
+        `;
+
+        // Append the order to the list
+        ordersList.appendChild(li);
+    });
+});
+
+// Function to update the order status
+function updateOrderStatus(orderKey, newStatus) {
+    database.ref('orders/' + orderKey).update({ status: newStatus });
+}
+
 // Variable to track the number of orders
 let lastSnapshotSize = 0;
 
