@@ -22,6 +22,7 @@ var database = firebase.database();
 
 
 // Listen for new orders and display them along with tableId
+// Listen for new orders and display them along with tableId
 database.ref('orders').on('value', function(snapshot) {
     const ordersList = document.getElementById('orders');
     ordersList.innerHTML = ''; // Clear current list before adding new orders
@@ -30,11 +31,14 @@ database.ref('orders').on('value', function(snapshot) {
         var orderData = orderSnapshot.val();
         var orderKey = orderSnapshot.key;
 
+        // Access 'order' object inside the snapshot to get tableId and other details
+        var orderDetails = orderData.order; 
+
         // Create a list item to display the order details
         var li = document.createElement('li');
         li.innerHTML = `
-            <strong>Order from Table ${orderData.tableId}</strong> <br>
-            Items: ${orderData.order.map(item => item.item).join(', ')} <br>
+            <strong>Order from Table ${orderDetails.tableId ? orderDetails.tableId : 'Unknown'}</strong> <br>
+            Items: ${orderDetails.map(item => item.item).join(', ')} <br>
             Total: $${orderData.total.toFixed(2)} <br>
             Status: ${orderData.status} <br>
             <button onclick="updateOrderStatus('${orderKey}', 'completed')">Mark as Completed</button>
@@ -44,6 +48,7 @@ database.ref('orders').on('value', function(snapshot) {
         ordersList.appendChild(li);
     });
 });
+
 
 // Function to update the order status
 function updateOrderStatus(orderKey, newStatus) {
