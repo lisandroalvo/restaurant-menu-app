@@ -3,33 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Our Restaurant</title>
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f8f8f8;
+    <title>Restaurant Logo Intro</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        // Function to redirect to the menu after a delay, with the tableId
+        function redirectToMenu() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableId = urlParams.get('tableId'); // Get tableId from the URL
+
+            // Redirect to menu.html with the tableId in the query string
+            window.location.href = `menu.html?tableId=${tableId}`;
         }
-        img {
-            width: 300px;
-            height: auto;
-        }
-    </style>
+
+        // Delay the redirection by 3 seconds (3000 milliseconds)
+        setTimeout(redirectToMenu, 3000);
+    </script>
 </head>
 <body>
-
-    <!-- Restaurant Logo -->
-    <img src="logo.png" alt="Restaurant Logo" id="logo">
-
-    <!-- Redirect script -->
-    <script>
-        setTimeout(function(){
-            window.location.href = "menu.html"; // Change this to your menu page
-        }, 3000); // 3000 milliseconds = 3 seconds
-    </script>
-
+    <header>
+        <h1>Restaurant Logo</h1>
+    </header>
+    <section>
+        <p>Welcome to our restaurant!</p>
+    </section>
 </body>
 </html>
