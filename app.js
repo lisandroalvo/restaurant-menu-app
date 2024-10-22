@@ -14,12 +14,6 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
-// Extract tableId from the URL
-function getTableId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if tableId is not present
-}
-
 // Cart data
 let cart = [];
 let total = 0;
@@ -45,7 +39,13 @@ function updateCart() {
     document.getElementById('total-price').innerText = total.toFixed(2);
 }
 
-// Submit order to Firebase
+// Extract tableId from the URL (insert the new code here)
+function getTableId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if tableId is not present
+}
+
+// Use this tableId when submitting the order (insert the new code here)
 function submitOrder() {
     var tableId = getTableId();  // Fetch tableId from URL
     var newOrderRef = database.ref('orders').push();
