@@ -62,23 +62,29 @@ function playNotificationSound() {
 // Listen for new orders in real time
 database.ref('orders').on('value', function(snapshot) {
     const ordersList = document.getElementById('orders');
-    ordersList.innerHTML = ''; // Clear current list before adding new orders
+    ordersList.innerHTML = ''; // Clear the current list of orders before adding new ones
 
     snapshot.forEach(function(orderSnapshot) {
-        var orderData = orderSnapshot.val();
+        var order = orderSnapshot.val();
         var orderKey = orderSnapshot.key;
 
-        // Create a list item to display the order details
+        // Check if the 'order' field exists and is an array before calling .map()
+        let itemsList = order.order && Array.isArray(order.order) ? order.order.map(i => i.item).join(', ') : 'No items available';
+
+        // Create the list item
         var li = document.createElement('li');
         li.innerHTML = `
-            <strong>Order from Table ${orderData.tableId}</strong> <br>
-            Items: ${orderData.order.map(item => item.item).join(', ')} <br>
-            Total: $${orderData.total.toFixed(2)} <br>
-            Status: ${orderData.status} <br>
-            <button onclick="updateOrderStatus('${orderKey}', 'completed')">Mark as Completed</button>
+            <strong>Order at ${order.timestamp}</strong>: ${itemsList} - Total: $${order.total}
+            <br>
+            <strong>Table ID:</strong> ${order.tableId ? order.tableId : 'Unknown'}
+            <br>
+            <select onchange="updateOrderStatus('${orderKey}', this.value)">
+                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
+            </select>
         `;
 
-        // Append the order to the list
         ordersList.appendChild(li);
     });
 });

@@ -14,15 +14,15 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
-// Session expiration time: 2 minutes (120,000 milliseconds)
-const SESSION_DURATION = 2 * 60 * 1000;  // 2 minutes in milliseconds
+// Session expiration time: 10 minutes (600,000 milliseconds)
+const SESSION_DURATION = 10 * 60 * 1000;
 
 // Start the session when the QR code is scanned
 function startSession() {
     const sessionStart = Date.now();
     localStorage.setItem('sessionStart', sessionStart);
-    alert('QR code scanned! You have 2 minutes to place your order.');
-    document.getElementById('orderButton').disabled = false;  // Enable the order button
+    alert('QR code scanned! You have 10 minutes to place your order.');
+    document.getElementById('orderButton').disabled = false; // Enable the order button
 }
 
 // Check if the session is still valid
@@ -46,38 +46,6 @@ function checkSessionExpiration() {
 function startSessionExpirationCheck() {
     setInterval(checkSessionExpiration, 1000);  // Check every second
 }
-
-// Submit order to Firebase, only if session is valid
-function submitOrder() {
-    if (isSessionValid()) {
-        var newOrderRef = database.ref('orders').push();
-        var orderKey = newOrderRef.key;
-
-        newOrderRef.set({
-            order: cart,
-            total: total,
-            status: "pending",
-            timestamp: new Date().toLocaleString(),
-            tableId: getTableId() // Include tableId
-        });
-
-        alert('Order submitted successfully!');
-        cart = [];
-        total = 0;
-        updateCart();  // Clear the cart display
-    } else {
-        alert('Your session has expired. Please re-scan the QR code to continue ordering.');
-        document.getElementById('orderButton').disabled = true; // Disable order button
-    }
-}
-
-// When QR code is scanned, start the session and session expiration check
-function onQRCodeScanned() {
-    startSession();  // Start the session
-    startSessionExpirationCheck();  // Start checking if the session expired
-}
-
-
 
 // Cart data
 let cart = [];
@@ -104,32 +72,37 @@ function updateCart() {
     document.getElementById('total-price').innerText = total.toFixed(2);
 }
 
-// Extract tableId from the URL (insert the new code here)
+// Extract tableId from the URL
 function getTableId() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if tableId is not present
 }
 
-// Use this tableId when submitting the order (insert the new code here)
+// Use this tableId when submitting the order
 function submitOrder() {
-    var tableId = getTableId();  // Fetch tableId from URL
-    var newOrderRef = database.ref('orders').push();
-    var orderKey = newOrderRef.key;
+    if (isSessionValid()) {
+        var tableId = getTableId();  // Fetch tableId from URL
+        var newOrderRef = database.ref('orders').push();
+        var orderKey = newOrderRef.key;
 
-    newOrderRef.set({
-        order: cart,
-        total: total,
-        tableId: tableId, // Include tableId from URL in the order data
-        status: "pending",
-        timestamp: new Date().toLocaleString()
-    });
+        newOrderRef.set({
+            order: cart,
+            total: total,
+            tableId: tableId, // Include tableId from URL in the order data
+            status: "pending",
+            timestamp: new Date().toLocaleString()
+        });
 
-    alert(`Order submitted successfully from Table ${tableId}!`);
-    cart = [];
-    total = 0;
-    updateCart();
+        alert(`Order submitted successfully from Table ${tableId}!`);
+        cart = [];
+        total = 0;
+        updateCart();
 
-    listenForOrderUpdates(orderKey);  // Start listening for order status updates
+        listenForOrderUpdates(orderKey);  // Start listening for order status updates
+    } else {
+        alert('Your session has expired. Please re-scan the QR code to continue ordering.');
+        document.getElementById('orderButton').disabled = true; // Disable order button
+    }
 }
 
 // Function to listen for updates on a specific order
@@ -163,4 +136,10 @@ function playNotificationSound() {
         .catch(error => {
             console.error('Error playing audio:', error);
         });
+}
+
+// When QR code is scanned, start the session and session expiration check
+function onQRCodeScanned() {
+    startSession();  // Start the session
+    startSessionExpirationCheck();  // Start checking if the session expired
 }
