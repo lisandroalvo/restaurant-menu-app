@@ -14,11 +14,11 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
-// Get the tableId from the URL
 function getTableId() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('tableId') || 'unknown'; // Default to 'unknown' if no tableId is found
 }
+
 
 // Cart data
 let cart = [];
@@ -61,12 +61,13 @@ function submitOrder() {
     });
 
     alert(`Order submitted from Table ${tableId}!`);
+    listenForOrderUpdates(orderKey);
+
     cart = [];
     total = 0;
     updateCart();
-
-    listenForOrderUpdates(orderKey);  // Start listening for order status updates
 }
+
 
 // Function to listen for updates on a specific order
 function listenForOrderUpdates(orderKey) {
