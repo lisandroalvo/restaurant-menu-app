@@ -40,17 +40,18 @@ function updateCart() {
     document.getElementById('total-price').innerText = total.toFixed(2);
 }
 
-// Submit order to Firebase
+// Submit order to Firebase and notify restaurant
 function submitOrder() {
     const tableId = getTableId(); // Get the tableId from the URL
 
     var newOrderRef = database.ref('orders').push();
     var orderKey = newOrderRef.key;
 
+    // Save order details in Firebase
     newOrderRef.set({
         order: cart,
         total: total,
-        tableId: tableId,  // Include tableId in the order data
+        tableId: tableId,
         status: "pending",
         timestamp: new Date().toLocaleString()
     });
@@ -62,20 +63,34 @@ function submitOrder() {
 
     disableOrderButton();  // Disable the order button after submission
     listenForOrderUpdates(orderKey);  // Start listening for order status updates
+
+    // Notify restaurant that table has requested the order
+    notifyRestaurant(tableId);
 }
 
-// Enable order button if cart has items
+// Notify restaurant when table requests an order
+function notifyRestaurant(tableId) {
+    // Push a notification to the restaurant side in Firebase
+    database.ref(`/billRequests/${tableId}`).set({
+        table_id: tableId,
+        status: 'order-requested'
+    });
+}
+
+// Enable both order and request bill buttons
 function enableOrderButton() {
     const orderButton = document.getElementById('orderButton');
     if (cart.length > 0) {
-        orderButton.disabled = false;
+        orderButton.disabled = false;  // Enable the order button when cart has items
+    } else {
+        orderButton.disabled = true;  // Disable the order button when cart is empty
     }
 }
 
-// Disable order button
+// Disable both buttons after order is submitted or when cart is empty
 function disableOrderButton() {
     const orderButton = document.getElementById('orderButton');
-    orderButton.disabled = true;
+    orderButton.disabled = true;  // Disable the order button
 }
 
 // Extract tableId from the URL
@@ -86,7 +101,6 @@ function getTableId() {
 
 // Function to listen for updates on a specific order
 function listenForOrderUpdates(orderKey) {
-    console.log(`Listening for updates on order: ${orderKey}`);
     database.ref('orders/' + orderKey + '/status').on('value', function(snapshot) {
         var newStatus = snapshot.val();
         if (newStatus) {
@@ -95,29 +109,56 @@ function listenForOrderUpdates(orderKey) {
     });
 }
 
-// Ensure button is disabled on page load and enable only when items are added
+// Always enable Request Bill button
+document.getElementById('requestBillButton').disabled = false;
+
+// Function to request bill from the restaurant
+function requestBill(tableId, userId) {
+    firebase.database().ref(`/billRequests/${tableId}`).set({
+        user_id: userId,
+        table_id: tableId,
+        status: 'requesting'
+    });
+    alert('Bill requested successfully!');
+}
+
+// Event listener for Request Bill button
+document.getElementById('requestBillButton').addEventListener('click', function() {
+    const tableId = getTableId();  // Fetch table ID from the URL or elsewhere
+    const userId = 'user_123';  // Example user ID (replace with real value)
+    requestBill(tableId, userId);
+});
+
+// Listen for bill updates from the restaurant and display it when it's sent
+function listenForBillUpdates() {
+    const tableId = getTableId();  // Ensure tableId is available
+    if (tableId !== 'unknown') {
+        firebase.database().ref(`/bills/${tableId}`).on('value', (snapshot) => {
+            const bill = snapshot.val();
+            if (bill && bill.status === 'sent') {
+                displayBill(bill);  // Display bill in user app
+            } else {
+                console.log('No bill received yet.');
+            }
+        });
+    }
+}
+
+// Display the bill to the user
+function displayBill(bill) {
+    const billDetails = `
+        <h3>Your Bill</h3>
+        <ul>
+            ${bill.items.map(i => `<li>${i.item} - $${i.price}</li>`).join('')}
+        </ul>
+        <p><strong>Total:</strong> $${bill.total.toFixed(2)}</p>
+    `;
+    document.getElementById('bill-display').innerHTML = billDetails;  // Update bill display in the client app
+    alert('Your bill has arrived!');
+}
+
+// Call the function to listen for bill updates when the page loads
 document.addEventListener('DOMContentLoaded', function () {
     disableOrderButton();  // Disable the order button initially
+    listenForBillUpdates();  // Start listening for bill updates
 });
-
-// Enable notifications after user clicks the button
-document.getElementById('enable-sound').addEventListener('click', function() {
-    alert('Notifications are enabled!');
-});
-
-// Function to play notification sound when order status is updated
-function playNotificationSound() {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    fetch('notification-sound.mp3')
-        .then(response => response.arrayBuffer())
-        .then(buffer => audioContext.decodeAudioData(buffer))
-        .then(decodedData => {
-            const source = audioContext.createBufferSource();
-            source.buffer = decodedData;
-            source.connect(audioContext.destination);
-            source.start(0);
-        })
-        .catch(error => {
-            console.error('Error playing audio:', error);
-        });
-}

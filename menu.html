@@ -25,8 +25,7 @@
     </div>
 </section>
 
-<!-- Enable notifications -->
-<button id="enable-sound">Enable Notifications</button>
+<!-- Existing HTML remains untouched -->
 
 <!-- Cart Section -->
 <section class="cart">
@@ -34,7 +33,15 @@
     <ul id="cart-items"></ul>
     <p><strong>Total:</strong> $<span id="total-price">0</span></p>
     <button id="orderButton" disabled onclick="submitOrder()">Confirm Order</button>
+    <!-- Add the new 'Request Bill' button here -->
+    <button id="requestBillButton" disabled onclick="requestBill()">Request Bill</button>
 </section>
+
+<section>
+    <h2>Your Bill</h2>
+    <div id="bill-display"> <!-- Bill details will appear here --> </div>
+</section>
+
 
 <footer>
     <p>Restaurant &copy; 2024</p>
@@ -42,6 +49,3 @@
 
 <!-- Link to external JavaScript file -->
 <script src="app.js"></script>
-
-</body>
-</html>
