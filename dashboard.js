@@ -1,4 +1,3 @@
-// Firebase Configuration
 var firebaseConfig = {
     apiKey: "AIzaSyD3hZhuy9c1TnpZV6rEpuJH8zJ6bIuaOTg",
     authDomain: "restaurant-x-7baa2.firebaseapp.com",
@@ -91,7 +90,7 @@ database.ref('orders').on('value', function(snapshot) {
     });
 });
 
-// Function to handle bill requests ---------------------------------------------------
+// Function to handle bill requests
 
 // Listen for bill requests in real-time
 database.ref('/billRequests').on('value', (snapshot) => {
@@ -167,9 +166,4 @@ function sendFinalBill(tableId, total, orderDetails) {
 // Utility function to calculate the total amount of the bill
 function calculateTotal(orderDetails) {
     return orderDetails.reduce((total, item) => total + item.price, 0);
-}
-
-// Example function to show a popup (you can replace this with your own implementation)
-function showPopup(message) {
-    alert(message);
 }

@@ -62,35 +62,34 @@ function submitOrder() {
     updateCart();
 
     disableOrderButton();  // Disable the order button after submission
+    enableRequestBillButton();  // Enable the request bill button after order submission
     listenForOrderUpdates(orderKey);  // Start listening for order status updates
-
-    // Notify restaurant that table has requested the order
-    notifyRestaurant(tableId);
 }
 
-// Notify restaurant when table requests an order
-function notifyRestaurant(tableId) {
-    // Push a notification to the restaurant side in Firebase
-    database.ref(`/billRequests/${tableId}`).set({
-        table_id: tableId,
-        status: 'order-requested'
-    });
-}
-
-// Enable both order and request bill buttons
+// Enable order button if cart has items
 function enableOrderButton() {
     const orderButton = document.getElementById('orderButton');
     if (cart.length > 0) {
-        orderButton.disabled = false;  // Enable the order button when cart has items
-    } else {
-        orderButton.disabled = true;  // Disable the order button when cart is empty
+        orderButton.disabled = false;
     }
 }
 
-// Disable both buttons after order is submitted or when cart is empty
+// Disable order button
 function disableOrderButton() {
     const orderButton = document.getElementById('orderButton');
-    orderButton.disabled = true;  // Disable the order button
+    orderButton.disabled = true;
+}
+
+// Enable Request Bill button
+function enableRequestBillButton() {
+    const requestBillButton = document.getElementById('requestBillButton');
+    requestBillButton.disabled = false;
+}
+
+// Disable Request Bill button
+function disableRequestBillButton() {
+    const requestBillButton = document.getElementById('requestBillButton');
+    requestBillButton.disabled = true;
 }
 
 // Extract tableId from the URL
@@ -109,24 +108,52 @@ function listenForOrderUpdates(orderKey) {
     });
 }
 
-// Always enable Request Bill button
-document.getElementById('requestBillButton').disabled = false;
+// Enable notifications after user clicks the button
+document.getElementById('enable-sound').addEventListener('click', function() {
+    alert('Notifications are enabled!');
+});
+
+// Play notification sound when order status is updated
+function playNotificationSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    fetch('notification-sound.mp3')
+        .then(response => response.arrayBuffer())
+        .then(buffer => audioContext.decodeAudioData(buffer))
+        .then(decodedData => {
+            const source = audioContext.createBufferSource();
+            source.buffer = decodedData;
+            source.connect(audioContext.destination);
+            source.start(0);
+        })
+        .catch(error => {
+            console.error('Error playing audio:', error);
+        });
+}
 
 // Function to request bill from the restaurant
-function requestBill(tableId, userId) {
-    firebase.database().ref(`/billRequests/${tableId}`).set({
-        user_id: userId,
-        table_id: tableId,
-        status: 'requesting'
-    });
-    alert('Bill requested successfully!');
+function requestBill() {
+    const tableId = getTableId();  // Fetch table ID from the URL
+    if (tableId !== 'unknown') {
+        // Write the request to Firebase
+        console.log(`Requesting bill for Table ${tableId}`);  // Debugging line
+        firebase.database().ref(`/billRequests/${tableId}`).set({
+            table_id: tableId,
+            status: 'requesting'
+        }, function(error) {
+            if (error) {
+                console.error('Error requesting bill:', error);
+            } else {
+                alert('Bill requested successfully!');
+            }
+        });
+    } else {
+        alert('Table ID is unknown. Cannot request the bill.');
+    }
 }
 
 // Event listener for Request Bill button
 document.getElementById('requestBillButton').addEventListener('click', function() {
-    const tableId = getTableId();  // Fetch table ID from the URL or elsewhere
-    const userId = 'user_123';  // Example user ID (replace with real value)
-    requestBill(tableId, userId);
+    requestBill();
 });
 
 // Listen for bill updates from the restaurant and display it when it's sent
