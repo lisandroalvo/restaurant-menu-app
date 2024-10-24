@@ -134,7 +134,6 @@ function playNotificationSound() {
 function requestBill() {
     const tableId = getTableId();  // Fetch table ID from the URL
     if (tableId !== 'unknown') {
-        // Write the request to Firebase
         console.log(`Requesting bill for Table ${tableId}`);  // Debugging line
         firebase.database().ref(`/billRequests/${tableId}`).set({
             table_id: tableId,
@@ -143,6 +142,7 @@ function requestBill() {
             if (error) {
                 console.error('Error requesting bill:', error);
             } else {
+                console.log('Bill request written to Firebase successfully.');
                 alert('Bill requested successfully!');
             }
         });
