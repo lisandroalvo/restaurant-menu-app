@@ -30,10 +30,7 @@ function addToCart(item) {
     updateCart();
     showNotification('Item added to cart');
     updateCartCounter();
-    
-    // Show cart sidebar when adding items
-    const cartSidebar = document.querySelector('.cart-sidebar');
-    cartSidebar.classList.add('active');
+    openTab('orders'); // Automatically switch to orders tab
 }
 
 // Update cart display
@@ -59,16 +56,7 @@ function updateCart() {
         floatingTotalElement.textContent = total.toFixed(2);
     }
 
-    // Update cart counter
-    const counter = document.getElementById('cart-counter');
-    if (counter) {
-        counter.style.display = cart.length > 0 ? 'flex' : 'none';
-        counter.textContent = cart.length;
-    }
-}
-
-// Update cart counter
-function updateCartCounter() {
+    // Update cart counter visibility
     const counter = document.getElementById('cart-counter');
     if (counter) {
         counter.style.display = cart.length > 0 ? 'flex' : 'none';
@@ -78,181 +66,45 @@ function updateCartCounter() {
 
 // Place order function
 function placeOrder() {
-    if (cart.length === 0) {
-        showNotification('Cart is empty');
-        return;
-    }
-
     const tableId = getTableId();
+    
     if (!tableId) {
-        showNotification('Table ID not found');
+        alert('Error: No table ID found. Please scan the QR code again.');
+        return;
+    }
+    
+    if (cart.length === 0) {
+        alert('Your cart is empty!');
         return;
     }
 
-    const orderId = Date.now().toString();
-    const order = {
-        id: orderId,
+    showSpinner();
+
+    const orderData = {
         tableId: tableId,
-        items: [...cart],
+        items: cart,
         total: total,
         status: 'pending',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        orderDate: new Date().toISOString().split('T')[0],
+        orderTime: new Date().toLocaleTimeString()
     };
 
-    database.ref(`orders/${tableId}/${orderId}`).set(order)
-        .then(() => {
+    database.ref('orders').push(orderData)
+        .then((ref) => {
+            console.log('Order sent successfully:', ref.key);
             cart = [];
             total = 0;
             updateCart();
-            showNotification('Order placed successfully');
-            updateActiveOrders();
+            hideSpinner();
+            showNotification('Order placed successfully!');
+            loadOrders(); // Reload orders after placing order
         })
         .catch((error) => {
-            console.error('Error:', error);
-            showNotification('Error placing order');
+            console.error('Error placing order:', error);
+            hideSpinner();
+            alert('Error placing order. Please try again.');
         });
-}
-
-// Create order status card
-function createOrderStatusCard(order) {
-    const statusMap = {
-        'pending': { text: 'Order Received', color: '#ffc107' },
-        'preparing': { text: 'Preparing Your Order', color: '#17a2b8' },
-        'completed': { text: 'Ready to Serve', color: '#28a745' }
-    };
-
-    const status = statusMap[order.status] || statusMap.pending;
-    const orderCard = document.createElement('div');
-    orderCard.className = 'order-status-card';
-    orderCard.id = `order-status-${order.id}`;
-    
-    orderCard.innerHTML = `
-        <div class="order-status-header">
-            <span class="status-pulse ${order.status}"></span>
-            <span>${status.text}</span>
-        </div>
-        <div class="status-animation"></div>
-        <div class="order-items">
-            ${order.items.map(item => `
-                <div class="order-item">
-                    <span>${item.name}</span>
-                    <span>$${item.price.toFixed(2)}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-
-    return orderCard;
-}
-
-// Update active orders in sidebar
-function updateActiveOrders() {
-    const activeOrdersContainer = document.getElementById('active-orders');
-    if (!activeOrdersContainer) return;
-
-    const tableId = getTableId();
-    if (!tableId) return;
-
-    database.ref(`orders/${tableId}`).on('value', (snapshot) => {
-        activeOrdersContainer.innerHTML = '';
-        
-        if (snapshot.exists()) {
-            const orders = [];
-            snapshot.forEach((childSnapshot) => {
-                const order = childSnapshot.val();
-                if (order.status !== 'billed') {
-                    orders.push(order);
-                }
-            });
-
-            // Sort orders by timestamp (newest first)
-            orders.sort((a, b) => b.timestamp - a.timestamp);
-
-            orders.forEach(order => {
-                const orderCard = createOrderStatusCard(order);
-                activeOrdersContainer.appendChild(orderCard);
-            });
-        }
-    });
-}
-
-// Toggle cart sidebar
-function toggleCart() {
-    const cartSidebar = document.querySelector('.cart-sidebar');
-    cartSidebar.classList.toggle('active');
-}
-
-// Function to create order card
-function createOrderCard(order) {
-    const statusMap = {
-        'pending': { text: 'Pending', progress: 25 },
-        'preparing': { text: 'Preparing', progress: 50 },
-        'completed': { text: 'Completed', progress: 100 },
-        'billed': { text: 'Billed', progress: 100 }
-    };
-
-    const orderStatus = statusMap[order.status] || statusMap.pending;
-    const timestamp = new Date(order.timestamp).toLocaleTimeString();
-
-    const orderCard = document.createElement('div');
-    orderCard.className = 'order-card';
-    orderCard.id = `order-${order.id}`;
-    
-    orderCard.innerHTML = `
-        <div class="order-header">
-            <span class="order-id">Order #${order.id}</span>
-            <span class="status-badge ${order.status}">
-                <span class="status-icon ${order.status}"></span>
-                ${orderStatus.text}
-            </span>
-        </div>
-        <div class="progress-track">
-            <div class="progress-bar" style="width: ${orderStatus.progress}%"></div>
-        </div>
-        <div class="order-items">
-            ${order.items.map(item => `
-                <div class="order-item">
-                    <span>${item.name}</span>
-                    <span>$${item.price.toFixed(2)}</span>
-                </div>
-            `).join('')}
-        </div>
-        <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-        <div class="order-time">Ordered at: ${timestamp}</div>
-    `;
-
-    return orderCard;
-}
-
-// Function to update order status
-function updateOrderStatus(orderId, newStatus) {
-    const orderRef = database.ref(`orders/${getTableId()}/${orderId}`);
-    orderRef.update({ status: newStatus });
-}
-
-// Listen for order updates
-function listenToOrders() {
-    const tableId = getTableId();
-    if (!tableId) return;
-
-    const ordersRef = database.ref(`orders/${tableId}`);
-    ordersRef.on('child_added', (snapshot) => {
-        const order = snapshot.val();
-        const ordersContainer = document.getElementById('orders-container');
-        if (ordersContainer) {
-            const orderCard = createOrderCard(order);
-            ordersContainer.prepend(orderCard);
-        }
-    });
-
-    ordersRef.on('child_changed', (snapshot) => {
-        const order = snapshot.val();
-        const orderCard = document.getElementById(`order-${order.id}`);
-        if (orderCard) {
-            const newOrderCard = createOrderCard(order);
-            orderCard.replaceWith(newOrderCard);
-        }
-    });
 }
 
 // Request bill function
@@ -313,6 +165,39 @@ function requestBill() {
             hideSpinner();
             alert(error.message || 'Error requesting bill. Please try again.');
         });
+}
+
+// Update cart counter
+function updateCartCounter() {
+    const counter = document.getElementById('cart-counter');
+    if (!counter) return;
+
+    const cartItemCount = cart.length;
+    counter.textContent = cartItemCount;
+    counter.style.display = cartItemCount > 0 ? 'flex' : 'none';
+}
+
+// Show notification
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Helper functions for spinner
+function showSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'flex';
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'none';
 }
 
 // Load orders function
@@ -385,29 +270,6 @@ function getProgressWidth(status) {
     }
 }
 
-// Show notification
-function showNotification(message) {
-    const notification = document.createElement('div');
-    notification.className = 'notification';
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
-
-// Helper functions for spinner
-function showSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'flex';
-}
-
-function hideSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'none';
-}
-
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
@@ -418,7 +280,6 @@ document.addEventListener('DOMContentLoaded', function() {
         window.tableId = table;
         console.log('Table ID set:', table);
         loadOrders();
-        listenToOrders();
     } else {
         console.error('No table ID in URL');
         alert('Error: No table ID found. Please scan the QR code again.');
