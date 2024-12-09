@@ -23,6 +23,12 @@ function getTableId() {
     return window.tableId || null;
 }
 
+// Toggle cart sidebar
+function toggleCart() {
+    const cartSidebar = document.getElementById('cart-sidebar');
+    cartSidebar.classList.toggle('active');
+}
+
 // Add to cart function
 function addToCart(item) {
     cart.push(item);
@@ -30,7 +36,10 @@ function addToCart(item) {
     updateCart();
     showNotification('Item added to cart');
     updateCartCounter();
-    openTab('orders'); // Automatically switch to orders tab
+    
+    // Show cart sidebar when adding items
+    const cartSidebar = document.getElementById('cart-sidebar');
+    cartSidebar.classList.add('active');
 }
 
 // Update cart display
