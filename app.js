@@ -20,61 +20,7 @@ let total = 0;
 
 // Get table ID
 function getTableId() {
-    // First try from window object (set by menu.html)
-    if (window.tableId) {
-        return window.tableId;
-    }
-    
-    // Fallback to URL parameter
-    const params = new URLSearchParams(window.location.search);
-    const table = params.get('table');
-    
-    if (table) {
-        window.tableId = table; // Store for future use
-        return table;
-    }
-    
-    return null;
-}
-
-// Place order function
-function placeOrder() {
-    const tableId = getTableId();
-    
-    if (!tableId) {
-        alert('Error: No table ID found. Please scan the QR code again.');
-        return;
-    }
-    
-    if (cart.length === 0) {
-        alert('Your cart is empty!');
-        return;
-    }
-
-    const orderData = {
-        tableId: tableId,
-        items: cart,
-        total: total,
-        status: 'pending',
-        timestamp: Date.now(),
-        orderDate: new Date().toISOString().split('T')[0],
-        orderTime: new Date().toLocaleTimeString()
-    };
-
-    console.log('Sending order for table:', tableId);
-
-    database.ref('orders').push(orderData)
-        .then((ref) => {
-            console.log('Order sent successfully:', ref.key);
-            cart = [];
-            total = 0;
-            updateCart();
-            alert('Order placed successfully!');
-        })
-        .catch((error) => {
-            console.error('Error placing order:', error);
-            alert('Error placing order. Please try again.');
-        });
+    return window.tableId || null;
 }
 
 // Add to cart function
@@ -103,8 +49,53 @@ function updateCart() {
     }
 }
 
+// Place order function
+function placeOrder() {
+    const tableId = getTableId();
+    
+    if (!tableId) {
+        alert('Error: No table ID found. Please scan the QR code again.');
+        return;
+    }
+    
+    if (cart.length === 0) {
+        alert('Your cart is empty!');
+        return;
+    }
+
+    // Show loading spinner
+    showSpinner();
+
+    const orderData = {
+        tableId: tableId,
+        items: cart,
+        total: total,
+        status: 'pending',
+        timestamp: Date.now(),
+        orderDate: new Date().toISOString().split('T')[0],
+        orderTime: new Date().toLocaleTimeString()
+    };
+
+    database.ref('orders').push(orderData)
+        .then((ref) => {
+            console.log('Order sent successfully:', ref.key);
+            cart = [];
+            total = 0;
+            updateCart();
+            hideSpinner();
+            alert('Order placed successfully!');
+            // Switch to orders tab
+            openTab('orders');
+        })
+        .catch((error) => {
+            console.error('Error placing order:', error);
+            hideSpinner();
+            alert('Error placing order. Please try again.');
+        });
+}
+
 // Request bill function
-function requestBill() {
+function requestBill(orderId) {
     const tableId = getTableId();
     
     if (!tableId) {
@@ -112,25 +103,23 @@ function requestBill() {
         return;
     }
 
-    database.ref('orders')
-        .orderByChild('tableId')
-        .equalTo(tableId)
-        .once('value')
+    showSpinner();
+
+    // First check if the order is completed
+    database.ref('orders').child(orderId).once('value')
         .then((snapshot) => {
-            if (!snapshot.exists()) {
-                alert('No orders found for this table!');
-                return;
+            const order = snapshot.val();
+            if (!order) {
+                throw new Error('Order not found');
+            }
+            if (order.status !== 'completed') {
+                throw new Error('Cannot request bill until order is completed');
             }
 
-            let totalAmount = 0;
-            snapshot.forEach((childSnapshot) => {
-                const order = childSnapshot.val();
-                totalAmount += order.total;
-            });
-
             const billRequest = {
+                orderId: orderId,
                 tableId: tableId,
-                total: totalAmount,
+                total: order.total,
                 status: 'pending',
                 timestamp: Date.now()
             };
@@ -138,12 +127,27 @@ function requestBill() {
             return database.ref('billRequests').push(billRequest);
         })
         .then(() => {
+            hideSpinner();
             alert('Bill requested! Please wait for the staff.');
+            // Update order status to billed
+            return database.ref('orders').child(orderId).update({ status: 'billed' });
         })
         .catch((error) => {
             console.error('Error requesting bill:', error);
-            alert('Error requesting bill. Please try again.');
+            hideSpinner();
+            alert(error.message || 'Error requesting bill. Please try again.');
         });
+}
+
+// Helper functions for spinner
+function showSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'flex';
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'none';
 }
 
 // When page loads or QR is scanned
