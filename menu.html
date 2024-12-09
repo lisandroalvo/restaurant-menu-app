@@ -231,8 +231,8 @@
             </div>
 
             <!-- Cart Section -->
-            <div id="cart-container" style="display: none;">
-                <h2>Your Cart - Table <span id="table-number"></span></h2>
+            <div id="cart-container">
+                <h2>Your Cart - Table <span id="table-number">Loading...</span></h2>
                 <div id="cart-items"></div>
                 <div id="cart-total">Total: $<span id="total">0.00</span></div>
                 <button onclick="placeOrder()" class="action-button">Place Order</button>
@@ -258,27 +258,18 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Get table ID from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const tableId = urlParams.get('table');
-            console.log('Table ID from URL:', tableId); // Debug log
+            const params = new URLSearchParams(window.location.search);
+            const table = params.get('table');
             
-            if (!tableId) {
-                alert('No table ID found! Please scan the QR code again.');
+            if (table) {
+                document.getElementById('table-number').textContent = table;
+                window.tableId = table; // Store globally
+                console.log('Table ID set:', table);
+                document.getElementById('cart-container').style.display = 'block';
+            } else {
+                console.error('No table ID in URL');
+                alert('Error: No table ID found. Please scan the QR code again.');
                 document.getElementById('cart-container').style.display = 'none';
-                return;
-            }
-            
-            // Store table ID in localStorage
-            localStorage.setItem('currentTableId', tableId);
-            
-            // Display table number
-            document.getElementById('table-number').textContent = tableId;
-            document.getElementById('cart-container').style.display = 'block';
-            
-            // Initialize the app with table ID
-            if (typeof initializeApp === 'function') {
-                initializeApp(tableId);
             }
         });
     </script>
