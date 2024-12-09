@@ -11,7 +11,9 @@ var firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const database = firebase.database();
 
 let cart = [];
@@ -61,6 +63,9 @@ function clearCart() {
 function updateCartDisplay() {
     const cartItems = document.getElementById('cart-items');
     const totalElement = document.getElementById('total');
+    const orderBtn = document.getElementById('order-btn');
+    
+    if (!cartItems || !totalElement) return;
     
     cartItems.innerHTML = '';
     cart.forEach((item, index) => {
@@ -74,8 +79,6 @@ function updateCartDisplay() {
     
     totalElement.textContent = total.toFixed(2);
     
-    // Show/hide order button based on cart contents
-    const orderBtn = document.getElementById('order-btn');
     if (orderBtn) {
         orderBtn.style.display = cart.length > 0 ? 'block' : 'none';
     }
@@ -88,29 +91,30 @@ function placeOrder() {
         return;
     }
 
-    // Create order data
+    const now = new Date();
     const orderData = {
         tableId: tableId,
         items: cart,
         total: total,
         status: 'pending',
         timestamp: firebase.database.ServerValue.TIMESTAMP,
-        orderDate: new Date().toISOString().split('T')[0]
+        orderDate: now.toISOString().split('T')[0],
+        orderTime: now.toLocaleTimeString(),
+        billRequested: false
     };
 
-    // Get a reference to the orders collection in Firebase
-    const ordersRef = database.ref('orders');
+    console.log('Sending order:', orderData);
 
-    // Push the new order
-    ordersRef.push(orderData)
+    database.ref('orders').push(orderData)
         .then((ref) => {
-            const orderKey = ref.key;
+            console.log('Order sent successfully with key:', ref.key);
             
             // Save to local storage with table ID
             const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
             myOrders.push({
-                key: orderKey,
-                ...orderData
+                key: ref.key,
+                ...orderData,
+                timestamp: Date.now()
             });
             localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(myOrders));
             
@@ -120,11 +124,8 @@ function placeOrder() {
             // Show success message
             alert('Order placed successfully!');
             
-            // Switch to orders tab if it exists
-            const ordersTab = document.getElementById('orders-tab');
-            if (ordersTab) {
-                switchTab('orders');
-            }
+            // Switch to orders tab
+            switchTab('orders');
         })
         .catch((error) => {
             console.error('Error placing order:', error);
@@ -132,67 +133,18 @@ function placeOrder() {
         });
 }
 
-// Load orders for current table
-function loadOrders() {
-    const ordersContainer = document.getElementById('orders-container');
-    if (!ordersContainer) return;
-    
-    // Get orders from local storage for this table
-    const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
-    
-    ordersContainer.innerHTML = '';
-    myOrders.forEach(order => {
-        const orderDiv = document.createElement('div');
-        orderDiv.className = 'order-card';
-        
-        const itemsList = order.items.map(item => 
-            `<li>${item.item} - $${item.price.toFixed(2)}</li>`
-        ).join('');
-        
-        orderDiv.innerHTML = `
-            <h3>Order #${order.key.slice(-4)}</h3>
-            <p>Table #${order.tableId}</p>
-            <p>Status: ${order.status}</p>
-            <p>Time: ${new Date(order.timestamp).toLocaleString()}</p>
-            <ul>${itemsList}</ul>
-            <p><strong>Total: $${order.total.toFixed(2)}</strong></p>
-            ${order.status === 'delivered' ? `
-                <button onclick="requestBill('${order.key}')" class="request-bill-btn">
-                    Request Bill
-                </button>
-            ` : ''}
-        `;
-        
-        ordersContainer.appendChild(orderDiv);
-    });
-}
-
-// Switch tabs function
-function switchTab(tabName) {
-    const menuTab = document.getElementById('menu-tab');
-    const ordersTab = document.getElementById('orders-tab');
-    
-    if (menuTab && ordersTab) {
-        menuTab.style.display = tabName === 'menu' ? 'block' : 'none';
-        ordersTab.style.display = tabName === 'orders' ? 'block' : 'none';
-        
-        if (tabName === 'orders') {
-            loadOrders();
-        }
-    }
-}
-
 // Request bill function
 function requestBill(orderKey) {
     const billRequest = {
         orderKey: orderKey,
-        timestamp: new Date().toISOString(),
+        tableId: tableId,
+        timestamp: Date.now(),
         status: 'pending'
     };
 
     database.ref('billRequests').push(billRequest)
         .then(() => {
-            // Update local storage to mark bill as requested
+            // Update local storage
             const orders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
             const updatedOrders = orders.map(order => {
                 if (order.key === orderKey) {
@@ -203,7 +155,7 @@ function requestBill(orderKey) {
             localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(updatedOrders));
             
             // Update UI
-            const button = document.querySelector(`[data-order-key="${orderKey}"] .request-bill-btn`);
+            const button = document.querySelector(`button[data-order-key="${orderKey}"]`);
             if (button) {
                 button.textContent = 'Bill Requested';
                 button.disabled = true;
@@ -220,66 +172,98 @@ function requestBill(orderKey) {
 // Listen for bill updates
 database.ref('bills').on('child_added', function(snapshot) {
     const billData = snapshot.val();
-    if (billData.status === 'sent') {
+    if (billData.tableId === tableId && billData.status === 'sent') {
         // Play notification sound
         const audio = new Audio('notification.mp3');
         audio.play().catch(error => console.log('Error playing sound:', error));
         
-        // Show bill in orders
-        const orderDiv = document.querySelector(`[data-order-key="${billData.orderKey}"]`);
-        if (orderDiv) {
-            const billSection = document.createElement('div');
-            billSection.className = 'bill-section';
-            billSection.innerHTML = `
-                <h3>Bill Details</h3>
-                <div class="bill-content">
-                    <div class="restaurant-info">
-                        <h2>${billData.restaurantName}</h2>
-                        <p>${billData.address}</p>
-                        <p>${billData.phone}</p>
-                    </div>
-                    <div class="order-info">
-                        <p><strong>Order #:</strong> ${billData.orderNumber}</p>
-                        <p><strong>Date:</strong> ${new Date(billData.timestamp).toLocaleDateString()}</p>
-                        <p><strong>Time:</strong> ${new Date(billData.timestamp).toLocaleTimeString()}</p>
-                    </div>
-                    <div class="items-list">
-                        <h4>Items:</h4>
-                        <ul>
-                            ${billData.items.map(item => `
-                                <li>${item.item} - $${item.price.toFixed(2)}</li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                    <div class="total">
-                        <h4>Total: $${billData.total.toFixed(2)}</h4>
-                    </div>
-                </div>
-                <button onclick="downloadBill(this)" class="download-bill-btn">Download Bill</button>
-            `;
-            
-            // Replace the request button with bill section
-            const requestBtn = orderDiv.querySelector('.request-bill-btn');
-            if (requestBtn) {
-                requestBtn.replaceWith(billSection);
-            }
-        }
+        // Update the order display
+        loadOrders();
     }
 });
 
-// Download bill as image
-function downloadBill(button) {
-    const billContent = button.parentElement.querySelector('.bill-content');
-    html2canvas(billContent).then(canvas => {
-        const link = document.createElement('a');
-        link.download = 'bill.png';
-        link.href = canvas.toDataURL();
-        link.click();
+// Listen for order status updates
+database.ref('orders').on('child_changed', function(snapshot) {
+    const orderData = snapshot.val();
+    if (orderData.tableId === tableId) {
+        // Update local storage
+        const orders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
+        const updatedOrders = orders.map(order => {
+            if (order.key === snapshot.key) {
+                return { ...order, status: orderData.status };
+            }
+            return order;
+        });
+        localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(updatedOrders));
+        
+        // Refresh orders display
+        loadOrders();
+    }
+});
+
+// Switch tabs function
+function switchTab(tabName) {
+    const menuTab = document.getElementById('menu-tab');
+    const ordersTab = document.getElementById('orders-tab');
+    
+    if (menuTab && ordersTab) {
+        menuTab.style.display = tabName === 'menu' ? 'block' : 'none';
+        ordersTab.style.display = tabName === 'orders' ? 'block' : 'none';
+        
+        if (tabName === 'orders') {
+            loadOrders();
+        }
+    }
+    
+    // Update active tab button
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(button => {
+        button.classList.toggle('active', button.textContent.toLowerCase().includes(tabName));
+    });
+}
+
+// Load orders function
+function loadOrders() {
+    const ordersContainer = document.getElementById('orders-container');
+    if (!ordersContainer) return;
+    
+    // Get orders from local storage for this table
+    const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
+    
+    ordersContainer.innerHTML = '';
+    myOrders.forEach(order => {
+        const orderDiv = document.createElement('div');
+        orderDiv.className = 'order-card';
+        orderDiv.setAttribute('data-order-key', order.key);
+        
+        const itemsList = order.items.map(item => 
+            `<li>${item.item} - $${item.price.toFixed(2)}</li>`
+        ).join('');
+        
+        const billButton = !order.billRequested && order.status === 'delivered' ? 
+            `<button onclick="requestBill('${order.key}')" class="request-bill-btn" data-order-key="${order.key}">
+                Request Bill
+            </button>` : 
+            (order.billRequested ? '<p class="bill-status">Bill Requested</p>' : '');
+        
+        orderDiv.innerHTML = `
+            <h3>Order #${order.key.slice(-4)}</h3>
+            <p>Table #${order.tableId}</p>
+            <p>Status: ${order.status}</p>
+            <p>Date: ${order.orderDate}</p>
+            <p>Time: ${order.orderTime}</p>
+            <ul>${itemsList}</ul>
+            <p><strong>Total: $${order.total.toFixed(2)}</strong></p>
+            ${billButton}
+        `;
+        
+        ordersContainer.appendChild(orderDiv);
     });
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing app...');
     initializeTable();
     updateCartDisplay();
     
