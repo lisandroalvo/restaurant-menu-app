@@ -21,38 +21,60 @@ let cart = [];
 let total = 0;
 let tableId = null;
 
+// Initialize app with table ID
+function initializeApp(id) {
+    console.log('Initializing app with table ID:', id); // Debug log
+    tableId = id;
+    clearAllData();
+}
+
+// Clear all data function
+function clearAllData() {
+    // Clear cart
+    cart = [];
+    total = 0;
+    updateCartDisplay();
+    
+    // Clear local storage for this table
+    if (tableId) {
+        localStorage.removeItem(`orders_table_${tableId}`);
+        localStorage.removeItem(`cart_table_${tableId}`);
+    }
+}
+
+// Get current table ID
+function getCurrentTableId() {
+    // First try to get from variable
+    if (tableId) return tableId;
+    
+    // Then try to get from localStorage
+    const storedId = localStorage.getItem('currentTableId');
+    if (storedId) return storedId;
+    
+    // Finally try to get from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlId = urlParams.get('table');
+    
+    console.log('Getting table ID:', urlId); // Debug log
+    return urlId;
+}
+
 // When page loads or QR is scanned
 window.onload = function() {
     // Get table ID from URL
     const urlParams = new URLSearchParams(window.location.search);
-    tableId = urlParams.get('table');
+    const id = urlParams.get('table');
     
-    if (!tableId) {
+    if (!id) {
         alert('No table ID provided! Please scan the QR code again.');
         return;
     }
 
-    // Initialize table and display table number
-    document.getElementById('table-number').textContent = tableId;
+    // Initialize app with table ID
+    initializeApp(id);
     
-    // Clear previous data
-    clearAllData();
-};
-
-// Get table ID from URL
-function getTableId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('table');
-    return id || 'unknown';
-}
-
-// Initialize table information
-function initializeTable() {
-    tableId = getTableId();
-    const tableInfo = document.getElementById('table-info');
-    if (tableInfo) {
-        tableInfo.textContent = `Table #${tableId}`;
-    }
+    // Initialize table and display table number
+    document.getElementById('table-number').textContent = id;
 }
 
 // Add to cart function
@@ -105,7 +127,10 @@ function updateCartDisplay() {
 
 // Place order function
 function placeOrder() {
-    if (!tableId) {
+    const currentTableId = getCurrentTableId();
+    console.log('Placing order for table:', currentTableId); // Debug log
+    
+    if (!currentTableId) {
         alert('No table ID found! Please scan the QR code again.');
         return;
     }
@@ -116,7 +141,7 @@ function placeOrder() {
     }
 
     const orderData = {
-        tableId: tableId,
+        tableId: currentTableId,
         items: cart,
         total: total,
         status: 'pending',
@@ -129,8 +154,7 @@ function placeOrder() {
         })
     };
 
-    console.log('Sending order with table ID:', tableId);
-    console.log('Order data:', orderData);
+    console.log('Sending order data:', orderData); // Debug log
 
     // Send order to Firebase
     database.ref('orders').push(orderData)
@@ -138,7 +162,7 @@ function placeOrder() {
             console.log('Order sent successfully with key:', ref.key);
             
             // Save to local storage with table ID
-            const storageKey = `orders_table_${tableId}`;
+            const storageKey = `orders_table_${currentTableId}`;
             const myOrders = JSON.parse(localStorage.getItem(storageKey) || '[]');
             myOrders.push({
                 key: ref.key,
@@ -163,29 +187,44 @@ function placeOrder() {
 
 // Request bill function
 function requestBill() {
-    if (!tableId) {
-        alert('No table ID found!');
+    const currentTableId = getCurrentTableId();
+    console.log('Requesting bill for table:', currentTableId); // Debug log
+    
+    if (!currentTableId) {
+        alert('No table ID found! Please scan the QR code again.');
         return;
     }
 
     // Get all orders for this table from Firebase
-    database.ref('orders').orderByChild('tableId').equalTo(tableId).once('value')
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(currentTableId)
+        .once('value')
         .then((snapshot) => {
             if (!snapshot.exists()) {
                 alert('No orders found for this table!');
                 return;
             }
 
+            // Calculate total amount
+            let totalAmount = 0;
+            snapshot.forEach((childSnapshot) => {
+                const order = childSnapshot.val();
+                if (order.status !== 'cancelled') {
+                    totalAmount += order.total;
+                }
+            });
+
             // Create bill request
             const billRequest = {
-                tableId: tableId,
+                tableId: currentTableId,
                 status: 'pending',
+                total: totalAmount,
                 timestamp: Date.now(),
                 requestDate: new Date().toISOString().split('T')[0],
                 requestTime: new Date().toLocaleTimeString()
             };
 
-            // Send bill request to Firebase
             return database.ref('billRequests').push(billRequest);
         })
         .then(() => {
@@ -200,7 +239,7 @@ function requestBill() {
 // Listen for bill updates
 database.ref('bills').on('child_added', function(snapshot) {
     const billData = snapshot.val();
-    if (billData.tableId === tableId && billData.status === 'sent') {
+    if (billData.tableId === getCurrentTableId() && billData.status === 'sent') {
         // Play notification sound
         const audio = new Audio('notification.mp3');
         audio.play().catch(error => console.log('Error playing sound:', error));
@@ -213,16 +252,16 @@ database.ref('bills').on('child_added', function(snapshot) {
 // Listen for order status updates
 database.ref('orders').on('child_changed', function(snapshot) {
     const orderData = snapshot.val();
-    if (orderData.tableId === tableId) {
+    if (orderData.tableId === getCurrentTableId()) {
         // Update local storage
-        const orders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
+        const orders = JSON.parse(localStorage.getItem(`orders_table_${getCurrentTableId()}`) || '[]');
         const updatedOrders = orders.map(order => {
             if (order.key === snapshot.key) {
                 return { ...order, status: orderData.status };
             }
             return order;
         });
-        localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(updatedOrders));
+        localStorage.setItem(`orders_table_${getCurrentTableId()}`, JSON.stringify(updatedOrders));
         
         // Refresh orders display
         loadOrders();
@@ -256,7 +295,7 @@ function loadOrders() {
     if (!ordersContainer) return;
     
     // Get orders from local storage for this table
-    const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
+    const myOrders = JSON.parse(localStorage.getItem(`orders_table_${getCurrentTableId()}`) || '[]');
     
     ordersContainer.innerHTML = '';
     myOrders.forEach(order => {
@@ -296,30 +335,4 @@ function updateOrderStatus(orderId, status) {
         statusElement.className = `status-badge status-${status.toLowerCase()}`;
         statusElement.textContent = status;
     }
-}
-
-// Clear all data function
-function clearAllData() {
-    // Clear cart
-    cart = [];
-    total = 0;
-    updateCartDisplay();
-    
-    // Clear all local storage for this table
-    if (tableId) {
-        localStorage.removeItem(`orders_table_${tableId}`);
-        localStorage.removeItem(`cart_table_${tableId}`);
-    }
-    
-    // Get new table ID from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    tableId = urlParams.get('table');
-    
-    if (!tableId) {
-        alert('No table ID provided!');
-        return;
-    }
-    
-    // Update table number display
-    document.getElementById('table-number').textContent = tableId;
 }

@@ -257,10 +257,11 @@
     <script src="app.js"></script>
 
     <script>
-        // Get table ID from URL
-        window.onload = function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get table ID from URL
             const urlParams = new URLSearchParams(window.location.search);
             const tableId = urlParams.get('table');
+            console.log('Table ID from URL:', tableId); // Debug log
             
             if (!tableId) {
                 alert('No table ID found! Please scan the QR code again.');
@@ -268,9 +269,18 @@
                 return;
             }
             
+            // Store table ID in localStorage
+            localStorage.setItem('currentTableId', tableId);
+            
+            // Display table number
             document.getElementById('table-number').textContent = tableId;
             document.getElementById('cart-container').style.display = 'block';
-        }
+            
+            // Initialize the app with table ID
+            if (typeof initializeApp === 'function') {
+                initializeApp(tableId);
+            }
+        });
     </script>
 
     <div class="tab-buttons">
