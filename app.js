@@ -93,7 +93,7 @@ function placeOrder() {
 
     const orderData = {
         tableId: tableId,
-        items: cart.map(item => ({...item})), // Create a clean copy of items
+        items: cart,
         total: total,
         status: 'pending',
         timestamp: Date.now(),
@@ -105,23 +105,18 @@ function placeOrder() {
         })
     };
 
-    console.log('Preparing to send order:', orderData);
+    console.log('Sending order:', orderData);
 
-    // Create a new reference and get the key
-    const newOrderRef = database.ref('orders').push();
-    const orderKey = newOrderRef.key;
-
-    // Set the data with the key
-    newOrderRef.set(orderData)
-        .then(() => {
-            console.log('Order sent successfully with key:', orderKey);
+    // Send order to Firebase
+    database.ref('orders').push(orderData)
+        .then((ref) => {
+            console.log('Order sent successfully with key:', ref.key);
             
             // Save to local storage
             const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
             myOrders.push({
-                key: orderKey,
-                ...orderData,
-                timestamp: Date.now() // Update timestamp for local storage
+                key: ref.key,
+                ...orderData
             });
             localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(myOrders));
             
@@ -130,16 +125,6 @@ function placeOrder() {
             
             // Show success message
             alert('Order placed successfully!');
-            
-            // Verify the order was saved
-            return database.ref(`orders/${orderKey}`).once('value');
-        })
-        .then((snapshot) => {
-            if (!snapshot.exists()) {
-                console.error('Order verification failed - order not found in database');
-                throw new Error('Order verification failed');
-            }
-            console.log('Order verified in database:', snapshot.val());
             
             // Switch to orders tab
             switchTab('orders');
