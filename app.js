@@ -28,6 +28,10 @@ function addToCart(item) {
     cart.push(item);
     total += item.price;
     updateCart();
+    // Show notification
+    showNotification('Item added to cart');
+    // Update cart counter
+    updateCartCounter();
 }
 
 // Update cart display
@@ -63,7 +67,6 @@ function placeOrder() {
         return;
     }
 
-    // Show loading spinner
     showSpinner();
 
     const orderData = {
@@ -83,9 +86,10 @@ function placeOrder() {
             total = 0;
             updateCart();
             hideSpinner();
-            alert('Order placed successfully!');
-            // Switch to orders tab
+            showNotification('Order placed successfully!');
+            // Switch to orders tab and update counter
             openTab('orders');
+            updateCartCounter();
         })
         .catch((error) => {
             console.error('Error placing order:', error);
@@ -105,7 +109,6 @@ function requestBill(orderId) {
 
     showSpinner();
 
-    // First check if the order is completed
     database.ref('orders').child(orderId).once('value')
         .then((snapshot) => {
             const order = snapshot.val();
@@ -128,8 +131,7 @@ function requestBill(orderId) {
         })
         .then(() => {
             hideSpinner();
-            alert('Bill requested! Please wait for the staff.');
-            // Update order status to billed
+            showNotification('Bill requested! Please wait for the staff.');
             return database.ref('orders').child(orderId).update({ status: 'billed' });
         })
         .catch((error) => {
@@ -137,6 +139,33 @@ function requestBill(orderId) {
             hideSpinner();
             alert(error.message || 'Error requesting bill. Please try again.');
         });
+}
+
+// Update cart counter
+function updateCartCounter() {
+    const counter = document.getElementById('cart-counter');
+    if (!counter) return;
+
+    // Count both items in cart and active orders
+    const cartItemCount = cart.length;
+    const activeOrders = document.querySelectorAll('.order-card').length;
+    const totalCount = cartItemCount + activeOrders;
+
+    counter.textContent = totalCount;
+    counter.style.display = totalCount > 0 ? 'flex' : 'none';
+}
+
+// Show notification
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
 }
 
 // Helper functions for spinner
@@ -149,6 +178,17 @@ function hideSpinner() {
     const spinner = document.getElementById('loading-spinner');
     if (spinner) spinner.style.display = 'none';
 }
+
+// Listen for order status changes
+database.ref('orders').on('child_changed', function(snapshot) {
+    const order = snapshot.val();
+    if (order.tableId === getTableId()) {
+        // Refresh orders display
+        loadOrders();
+        // Show notification for status change
+        showNotification(`Order #${snapshot.key.slice(-4)} ${order.status}`);
+    }
+});
 
 // When page loads or QR is scanned
 window.onload = function() {
