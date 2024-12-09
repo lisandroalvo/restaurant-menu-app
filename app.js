@@ -5,9 +5,8 @@ const firebaseConfig = {
     databaseURL: "https://restaurant-x-7baa2-default-rtdb.firebaseio.com/",
     projectId: "restaurant-x-7baa2",
     storageBucket: "restaurant-x-7baa2.appspot.com",
-    messagingSenderId: "33246350239",
-    appId: "1:33246350239:web:2b4982f57a8fdee05c0b0a",
-    measurementId: "G-9S7EBZ127P"
+    messagingSenderId: "1021718770殻",
+    appId: "1:1021718770殻:web:1f08d3c4f2bdb5f3f8c5b5"
 };
 
 // Initialize Firebase
@@ -51,9 +50,7 @@ function updateCart() {
 
 // Place order function
 function placeOrder() {
-    const tableId = getTableId();
-    
-    if (!tableId) {
+    if (!window.tableId) {
         alert('Error: No table ID found. Please scan the QR code again.');
         return;
     }
@@ -63,11 +60,8 @@ function placeOrder() {
         return;
     }
 
-    // Show loading spinner
-    showSpinner();
-
     const orderData = {
-        tableId: tableId,
+        tableId: window.tableId,
         items: cart,
         total: total,
         status: 'pending',
@@ -82,44 +76,52 @@ function placeOrder() {
             cart = [];
             total = 0;
             updateCart();
-            hideSpinner();
-            alert('Order placed successfully!');
+            alert('Order placed successfully! Check the Orders tab to see your order status.');
             // Switch to orders tab
             openTab('orders');
         })
         .catch((error) => {
             console.error('Error placing order:', error);
-            hideSpinner();
             alert('Error placing order. Please try again.');
         });
 }
 
 // Request bill function
-function requestBill(orderId) {
-    const tableId = getTableId();
-    
-    if (!tableId) {
+function requestBill() {
+    if (!window.tableId) {
         alert('Error: No table ID found. Please scan the QR code again.');
         return;
     }
 
-    showSpinner();
-
-    // First check if the order is completed
-    database.ref('orders').child(orderId).once('value')
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(window.tableId)
+        .once('value')
         .then((snapshot) => {
-            const order = snapshot.val();
-            if (!order) {
-                throw new Error('Order not found');
+            if (!snapshot.exists()) {
+                alert('No orders found for this table!');
+                return;
             }
-            if (order.status !== 'completed') {
-                throw new Error('Cannot request bill until order is completed');
+
+            let totalAmount = 0;
+            let pendingOrders = false;
+
+            snapshot.forEach((childSnapshot) => {
+                const order = childSnapshot.val();
+                if (order.status === 'pending' || order.status === 'preparing') {
+                    pendingOrders = true;
+                }
+                totalAmount += order.total;
+            });
+
+            if (pendingOrders) {
+                alert('Please wait until all orders are completed before requesting the bill.');
+                return;
             }
 
             const billRequest = {
-                orderId: orderId,
-                tableId: tableId,
-                total: order.total,
+                tableId: window.tableId,
+                total: totalAmount,
                 status: 'pending',
                 timestamp: Date.now()
             };
@@ -127,15 +129,12 @@ function requestBill(orderId) {
             return database.ref('billRequests').push(billRequest);
         })
         .then(() => {
-            hideSpinner();
+            if (!arguments[0]) return; // Skip if previous then() returned undefined
             alert('Bill requested! Please wait for the staff.');
-            // Update order status to billed
-            return database.ref('orders').child(orderId).update({ status: 'billed' });
         })
         .catch((error) => {
             console.error('Error requesting bill:', error);
-            hideSpinner();
-            alert(error.message || 'Error requesting bill. Please try again.');
+            alert('Error requesting bill. Please try again.');
         });
 }
 
