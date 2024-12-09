@@ -102,23 +102,28 @@ function placeOrder() {
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true 
-        })
+        }),
+        billRequested: false
     };
 
     console.log('Sending order:', orderData);
 
     // Create a new reference for the order
-    const newOrderRef = database.ref('orders').push();
+    const ordersRef = database.ref('orders');
+    const newOrderRef = ordersRef.push();
 
-    // Set the order data
+    // First, get the key
+    const orderKey = newOrderRef.key;
+    
+    // Then set the data
     newOrderRef.set(orderData)
         .then(() => {
-            console.log('Order sent successfully with key:', newOrderRef.key);
+            console.log('Order sent successfully with key:', orderKey);
             
             // Save to local storage with table ID
             const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
             myOrders.push({
-                key: newOrderRef.key,
+                key: orderKey,
                 ...orderData
             });
             localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(myOrders));
@@ -131,6 +136,9 @@ function placeOrder() {
             
             // Switch to orders tab
             switchTab('orders');
+            
+            // Load the updated orders
+            loadOrders();
         })
         .catch((error) => {
             console.error('Error placing order:', error);

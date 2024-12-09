@@ -11,20 +11,78 @@ var firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const database = firebase.database();
 
 // Audio for notifications
 const audio = new Audio('notification.mp3');
 
+// Reference to orders
+const ordersRef = database.ref('orders');
+
+// Clear orders container
+function clearOrdersContainer() {
+    const container = document.getElementById('orders-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+// Load all pending orders
+function loadPendingOrders() {
+    clearOrdersContainer();
+    ordersRef.orderByChild('status').equalTo('pending').once('value')
+        .then(snapshot => {
+            snapshot.forEach(childSnapshot => {
+                const order = childSnapshot.val();
+                displayOrder(order, childSnapshot.key);
+            });
+        })
+        .catch(error => console.error('Error loading pending orders:', error));
+}
+
 // Listen for new orders
-database.ref('orders').on('child_added', function(snapshot) {
+ordersRef.on('child_added', function(snapshot) {
+    console.log('New order received:', snapshot.key);
     const order = snapshot.val();
     const orderKey = snapshot.key;
     
     if (order.status !== 'archived') {
         displayOrder(order, orderKey);
         playNotificationSound();
+    }
+});
+
+// Listen for order changes
+ordersRef.on('child_changed', function(snapshot) {
+    console.log('Order updated:', snapshot.key);
+    const order = snapshot.val();
+    const orderKey = snapshot.key;
+    
+    if (order.status === 'archived') {
+        const orderElement = document.getElementById(`order-${orderKey}`);
+        if (orderElement) {
+            orderElement.remove();
+        }
+    } else {
+        // Update the order display
+        const orderElement = document.getElementById(`order-${orderKey}`);
+        if (orderElement) {
+            orderElement.remove();
+        }
+        displayOrder(order, orderKey);
+    }
+});
+
+// Listen for order removals
+ordersRef.on('child_removed', function(snapshot) {
+    console.log('Order removed:', snapshot.key);
+    const orderKey = snapshot.key;
+    const orderElement = document.getElementById(`order-${orderKey}`);
+    if (orderElement) {
+        orderElement.remove();
     }
 });
 
@@ -38,6 +96,7 @@ function playNotificationSound() {
 
 // Display order in the orders container
 function displayOrder(order, orderKey) {
+    console.log('Displaying order:', orderKey, order);
     const orderDiv = document.createElement('div');
     orderDiv.className = 'order-card';
     orderDiv.id = `order-${orderKey}`;
@@ -45,8 +104,6 @@ function displayOrder(order, orderKey) {
     const itemsList = order.items.map(item => 
         `<li>${item.item} - $${item.price.toFixed(2)}</li>`
     ).join('');
-
-    const orderDate = new Date(order.timestamp);
     
     orderDiv.innerHTML = `
         <div class="order-header">
@@ -77,6 +134,11 @@ function displayOrder(order, orderKey) {
     `;
     
     const ordersContainer = document.getElementById('orders-container');
+    if (!ordersContainer) {
+        console.error('Orders container not found');
+        return;
+    }
+    
     if (ordersContainer.firstChild) {
         ordersContainer.insertBefore(orderDiv, ordersContainer.firstChild);
     } else {
@@ -86,7 +148,8 @@ function displayOrder(order, orderKey) {
 
 // Update order status
 function updateOrderStatus(orderKey, newStatus) {
-    database.ref(`orders/${orderKey}`).update({
+    console.log('Updating order status:', orderKey, newStatus);
+    ordersRef.child(orderKey).update({
         status: newStatus
     }).then(() => {
         console.log(`Order ${orderKey} status updated to ${newStatus}`);
@@ -145,7 +208,7 @@ function archiveOrder(orderKey, showConfirmation = true) {
         return;
     }
 
-    database.ref(`orders/${orderKey}`).once('value')
+    ordersRef.child(orderKey).once('value')
         .then((snapshot) => {
             const order = snapshot.val();
             if (!order) return;
@@ -154,9 +217,9 @@ function archiveOrder(orderKey, showConfirmation = true) {
             return database.ref(`archivedOrders/${order.orderDate}/${orderKey}`).set({
                 ...order,
                 status: 'archived',
-                archivedAt: firebase.database.ServerValue.TIMESTAMP
+                archivedAt: Date.now()
             }).then(() => {
-                return database.ref(`orders/${orderKey}`).remove();
+                return ordersRef.child(orderKey).remove();
             });
         })
         .then(() => {
@@ -182,7 +245,7 @@ function deleteOrder(orderKey, showConfirmation = true) {
         return;
     }
 
-    database.ref(`orders/${orderKey}`).remove()
+    ordersRef.child(orderKey).remove()
         .then(() => {
             const orderElement = document.getElementById(`order-${orderKey}`);
             if (orderElement) {
@@ -280,5 +343,6 @@ function switchTab(tabName) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    switchTab('orders');
+    console.log('Dashboard initialized');
+    loadPendingOrders();
 });
