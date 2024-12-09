@@ -91,6 +91,12 @@ function placeOrder() {
         return;
     }
 
+    // Create a new order reference first
+    const newOrderRef = database.ref('orders').push();
+    
+    // Get the key
+    const orderKey = newOrderRef.key;
+
     const orderData = {
         tableId: tableId,
         items: cart,
@@ -108,14 +114,7 @@ function placeOrder() {
 
     console.log('Sending order:', orderData);
 
-    // Create a new reference for the order
-    const ordersRef = database.ref('orders');
-    const newOrderRef = ordersRef.push();
-
-    // First, get the key
-    const orderKey = newOrderRef.key;
-    
-    // Then set the data
+    // Set the data using the reference
     newOrderRef.set(orderData)
         .then(() => {
             console.log('Order sent successfully with key:', orderKey);

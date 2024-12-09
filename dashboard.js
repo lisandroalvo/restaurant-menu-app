@@ -1,5 +1,5 @@
 // Firebase Configuration
-var firebaseConfig = {
+const firebaseConfig = {
     apiKey: "AIzaSyD3hZhuy9c1TnpZV6rEpuJH8zJ6bIuaOTg",
     authDomain: "restaurant-x-7baa2.firebaseapp.com",
     databaseURL: "https://restaurant-x-7baa2-default-rtdb.firebaseio.com/",
@@ -11,16 +11,21 @@ var firebaseConfig = {
 };
 
 // Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-
-// Audio for notifications
-const audio = new Audio('notification.mp3');
-
-// Reference to orders
 const ordersRef = database.ref('orders');
+
+// Audio setup
+const notificationSound = document.getElementById('notification-sound');
+
+// Function to play notification sound
+function playNotificationSound() {
+    try {
+        notificationSound.play().catch(error => console.log('Error playing sound:', error));
+    } catch (error) {
+        console.error('Error with audio:', error);
+    }
+}
 
 // Clear orders container
 function clearOrdersContainer() {
@@ -32,9 +37,14 @@ function clearOrdersContainer() {
 
 // Load all pending orders
 function loadPendingOrders() {
+    console.log('Loading pending orders...');
     clearOrdersContainer();
-    ordersRef.orderByChild('status').equalTo('pending').once('value')
+    
+    ordersRef.orderByChild('status')
+        .equalTo('pending')
+        .once('value')
         .then(snapshot => {
+            console.log('Received pending orders:', snapshot.val());
             snapshot.forEach(childSnapshot => {
                 const order = childSnapshot.val();
                 displayOrder(order, childSnapshot.key);
@@ -43,60 +53,10 @@ function loadPendingOrders() {
         .catch(error => console.error('Error loading pending orders:', error));
 }
 
-// Listen for new orders
-ordersRef.on('child_added', function(snapshot) {
-    console.log('New order received:', snapshot.key);
-    const order = snapshot.val();
-    const orderKey = snapshot.key;
-    
-    if (order.status !== 'archived') {
-        displayOrder(order, orderKey);
-        playNotificationSound();
-    }
-});
-
-// Listen for order changes
-ordersRef.on('child_changed', function(snapshot) {
-    console.log('Order updated:', snapshot.key);
-    const order = snapshot.val();
-    const orderKey = snapshot.key;
-    
-    if (order.status === 'archived') {
-        const orderElement = document.getElementById(`order-${orderKey}`);
-        if (orderElement) {
-            orderElement.remove();
-        }
-    } else {
-        // Update the order display
-        const orderElement = document.getElementById(`order-${orderKey}`);
-        if (orderElement) {
-            orderElement.remove();
-        }
-        displayOrder(order, orderKey);
-    }
-});
-
-// Listen for order removals
-ordersRef.on('child_removed', function(snapshot) {
-    console.log('Order removed:', snapshot.key);
-    const orderKey = snapshot.key;
-    const orderElement = document.getElementById(`order-${orderKey}`);
-    if (orderElement) {
-        orderElement.remove();
-    }
-});
-
-function playNotificationSound() {
-    try {
-        audio.play().catch(error => console.log('Error playing sound:', error));
-    } catch (error) {
-        console.log('Error with audio:', error);
-    }
-}
-
 // Display order in the orders container
 function displayOrder(order, orderKey) {
     console.log('Displaying order:', orderKey, order);
+    
     const orderDiv = document.createElement('div');
     orderDiv.className = 'order-card';
     orderDiv.id = `order-${orderKey}`;
@@ -128,8 +88,8 @@ function displayOrder(order, orderKey) {
                 <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>Ready</option>
                 <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
             </select>
-            <button onclick="archiveOrder('${orderKey}')" class="archive-btn">Archive Order</button>
-            <button onclick="deleteOrder('${orderKey}')" class="delete-btn">Delete Order</button>
+            <button onclick="archiveOrder('${orderKey}')" class="archive-btn">Archive</button>
+            <button onclick="deleteOrder('${orderKey}')" class="delete-btn">Delete</button>
         </div>
     `;
     
@@ -139,129 +99,103 @@ function displayOrder(order, orderKey) {
         return;
     }
     
-    if (ordersContainer.firstChild) {
-        ordersContainer.insertBefore(orderDiv, ordersContainer.firstChild);
-    } else {
-        ordersContainer.appendChild(orderDiv);
-    }
+    // Insert new orders at the top
+    ordersContainer.insertBefore(orderDiv, ordersContainer.firstChild);
 }
 
 // Update order status
 function updateOrderStatus(orderKey, newStatus) {
     console.log('Updating order status:', orderKey, newStatus);
-    ordersRef.child(orderKey).update({
-        status: newStatus
-    }).then(() => {
-        console.log(`Order ${orderKey} status updated to ${newStatus}`);
-    }).catch(error => {
-        console.error('Error updating order status:', error);
-        alert('Error updating order status');
-    });
+    ordersRef.child(orderKey).update({ status: newStatus })
+        .then(() => console.log(`Order ${orderKey} status updated to ${newStatus}`))
+        .catch(error => {
+            console.error('Error updating order status:', error);
+            alert('Error updating order status');
+        });
+}
+
+// Archive order
+function archiveOrder(orderKey) {
+    if (!confirm('Archive this order?')) return;
+    
+    ordersRef.child(orderKey).once('value')
+        .then(snapshot => {
+            const order = snapshot.val();
+            if (!order) return;
+            
+            return database.ref(`archivedOrders/${order.orderDate}/${orderKey}`).set({
+                ...order,
+                status: 'archived',
+                archivedAt: Date.now()
+            }).then(() => ordersRef.child(orderKey).remove());
+        })
+        .then(() => {
+            const orderElement = document.getElementById(`order-${orderKey}`);
+            if (orderElement) orderElement.remove();
+        })
+        .catch(error => {
+            console.error('Error archiving order:', error);
+            alert('Error archiving order');
+        });
+}
+
+// Delete order
+function deleteOrder(orderKey) {
+    if (!confirm('Delete this order? This cannot be undone!')) return;
+    
+    ordersRef.child(orderKey).remove()
+        .then(() => {
+            const orderElement = document.getElementById(`order-${orderKey}`);
+            if (orderElement) orderElement.remove();
+        })
+        .catch(error => {
+            console.error('Error deleting order:', error);
+            alert('Error deleting order');
+        });
 }
 
 // Select all orders
 function selectAllOrders() {
     const checkboxes = document.querySelectorAll('.order-checkbox');
     const selectAllCheckbox = document.getElementById('select-all-orders');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAllCheckbox.checked;
-    });
+    checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
 }
 
-// Archive selected orders
-function archiveSelectedOrders() {
-    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
-    if (selectedOrders.length === 0) {
-        alert('Please select orders to archive');
-        return;
+// Real-time listeners
+ordersRef.on('child_added', function(snapshot) {
+    console.log('New order received:', snapshot.key);
+    const order = snapshot.val();
+    if (order.status !== 'archived') {
+        displayOrder(order, snapshot.key);
+        playNotificationSound();
     }
+});
 
-    if (confirm(`Archive ${selectedOrders.length} selected orders?`)) {
-        selectedOrders.forEach(checkbox => {
-            const orderKey = checkbox.getAttribute('data-order-key');
-            archiveOrder(orderKey, false);
-        });
-        alert('Selected orders archived successfully');
+ordersRef.on('child_changed', function(snapshot) {
+    console.log('Order updated:', snapshot.key);
+    const order = snapshot.val();
+    const orderElement = document.getElementById(`order-${snapshot.key}`);
+    if (orderElement) {
+        if (order.status === 'archived') {
+            orderElement.remove();
+        } else {
+            orderElement.remove();
+            displayOrder(order, snapshot.key);
+        }
     }
-}
+});
 
-// Delete selected orders
-function deleteSelectedOrders() {
-    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
-    if (selectedOrders.length === 0) {
-        alert('Please select orders to delete');
-        return;
-    }
+ordersRef.on('child_removed', function(snapshot) {
+    console.log('Order removed:', snapshot.key);
+    const orderElement = document.getElementById(`order-${snapshot.key}`);
+    if (orderElement) orderElement.remove();
+});
 
-    if (confirm(`Delete ${selectedOrders.length} selected orders? This cannot be undone!`)) {
-        selectedOrders.forEach(checkbox => {
-            const orderKey = checkbox.getAttribute('data-order-key');
-            deleteOrder(orderKey, false);
-        });
-        alert('Selected orders deleted successfully');
-    }
-}
-
-// Archive order
-function archiveOrder(orderKey, showConfirmation = true) {
-    if (showConfirmation && !confirm('Archive this order? It will be moved to historical orders.')) {
-        return;
-    }
-
-    ordersRef.child(orderKey).once('value')
-        .then((snapshot) => {
-            const order = snapshot.val();
-            if (!order) return;
-
-            // Move to archived orders with date organization
-            return database.ref(`archivedOrders/${order.orderDate}/${orderKey}`).set({
-                ...order,
-                status: 'archived',
-                archivedAt: Date.now()
-            }).then(() => {
-                return ordersRef.child(orderKey).remove();
-            });
-        })
-        .then(() => {
-            const orderElement = document.getElementById(`order-${orderKey}`);
-            if (orderElement) {
-                orderElement.remove();
-            }
-            if (showConfirmation) {
-                alert('Order archived successfully');
-            }
-        })
-        .catch(error => {
-            console.error('Error archiving order:', error);
-            if (showConfirmation) {
-                alert('Error archiving order');
-            }
-        });
-}
-
-// Delete order
-function deleteOrder(orderKey, showConfirmation = true) {
-    if (showConfirmation && !confirm('Are you sure you want to delete this order? This action cannot be undone!')) {
-        return;
-    }
-
-    ordersRef.child(orderKey).remove()
-        .then(() => {
-            const orderElement = document.getElementById(`order-${orderKey}`);
-            if (orderElement) {
-                orderElement.remove();
-            }
-            if (showConfirmation) {
-                alert('Order deleted successfully');
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting order:', error);
-            if (showConfirmation) {
-                alert('Error deleting order');
-            }
-        });
-}
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard initialized');
+    loadPendingOrders();
+});
 
 // Load historical orders
 function loadHistoricalOrders() {
@@ -341,8 +275,36 @@ function switchTab(tabName) {
     }
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Dashboard initialized');
-    loadPendingOrders();
-});
+// Archive selected orders
+function archiveSelectedOrders() {
+    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
+    if (selectedOrders.length === 0) {
+        alert('Please select orders to archive');
+        return;
+    }
+
+    if (confirm(`Archive ${selectedOrders.length} selected orders?`)) {
+        selectedOrders.forEach(checkbox => {
+            const orderKey = checkbox.getAttribute('data-order-key');
+            archiveOrder(orderKey, false);
+        });
+        alert('Selected orders archived successfully');
+    }
+}
+
+// Delete selected orders
+function deleteSelectedOrders() {
+    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
+    if (selectedOrders.length === 0) {
+        alert('Please select orders to delete');
+        return;
+    }
+
+    if (confirm(`Delete ${selectedOrders.length} selected orders? This cannot be undone!`)) {
+        selectedOrders.forEach(checkbox => {
+            const orderKey = checkbox.getAttribute('data-order-key');
+            deleteOrder(orderKey, false);
+        });
+        alert('Selected orders deleted successfully');
+    }
+}
