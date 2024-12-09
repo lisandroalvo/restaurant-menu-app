@@ -17,180 +17,127 @@ const database = firebase.database();
 // Audio for notifications
 const audio = new Audio('notification.mp3');
 
-// Listen for new orders
-database.ref('orders').on('child_added', function(snapshot) {
-    const order = snapshot.val();
-    const orderKey = snapshot.key;
-    
-    if (order.status !== 'archived') {
-        displayOrder(order, orderKey);
-        playNotificationSound();
-    }
-});
-
-function playNotificationSound() {
-    try {
-        audio.play().catch(error => console.log('Error playing sound:', error));
-    } catch (error) {
-        console.log('Error with audio:', error);
+// Clear all orders function
+function clearAllOrders() {
+    if (confirm('Are you sure you want to clear all orders? This cannot be undone.')) {
+        database.ref('orders').remove()
+            .then(() => {
+                console.log('All orders cleared successfully');
+                document.getElementById('orders-container').innerHTML = '';
+            })
+            .catch((error) => {
+                console.error('Error clearing orders:', error);
+                alert('Error clearing orders. Please try again.');
+            });
     }
 }
 
-// Display order in the orders container
-function displayOrder(order, orderKey) {
-    const orderDiv = document.createElement('div');
-    orderDiv.className = 'order-card';
-    orderDiv.id = `order-${orderKey}`;
+// Display order with improved status
+function displayOrder(orderId, orderData) {
+    const orderElement = document.createElement('div');
+    orderElement.className = 'order-card';
+    orderElement.id = `order-${orderId}`;
     
-    const itemsList = order.items.map(item => 
-        `<li>${item.item} - $${item.price.toFixed(2)}</li>`
-    ).join('');
+    const statusClass = `status-${orderData.status.toLowerCase()}`;
     
-    orderDiv.innerHTML = `
+    orderElement.innerHTML = `
         <div class="order-header">
-            <input type="checkbox" class="order-checkbox" data-order-key="${orderKey}">
-            <div class="order-info">
-                <h3>Order #${orderKey.slice(-4)}</h3>
-                <span class="table-number">Table #${order.tableId}</span>
-                <span class="order-time">${order.orderDate} ${order.orderTime}</span>
-                <span class="order-status">Status: ${order.status}</span>
-            </div>
+            <h3>Table ${orderData.tableId}</h3>
+            <span class="status-badge ${statusClass}">${orderData.status}</span>
         </div>
         <div class="order-items">
-            <ul>${itemsList}</ul>
+            ${orderData.items.map(item => `
+                <div class="order-item">
+                    <span>${item.quantity}x ${item.name}</span>
+                    <span>$${item.price.toFixed(2)}</span>
+                </div>
+            `).join('')}
         </div>
         <div class="order-total">
-            <strong>Total: $${order.total.toFixed(2)}</strong>
+            <strong>Total: $${orderData.total.toFixed(2)}</strong>
         </div>
         <div class="order-actions">
-            <select onchange="updateOrderStatus('${orderKey}', this.value)" class="status-select">
-                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
-                <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
-                <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>Ready</option>
-                <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-            </select>
-            <button onclick="archiveOrder('${orderKey}')" class="archive-btn">Archive Order</button>
-            <button onclick="deleteOrder('${orderKey}')" class="delete-btn">Delete Order</button>
+            <button onclick="updateStatus('${orderId}', 'preparing')">Preparing</button>
+            <button onclick="updateStatus('${orderId}', 'ready')">Ready</button>
+            <button onclick="updateStatus('${orderId}', 'delivered')">Delivered</button>
+            <button onclick="deleteOrder('${orderId}')" class="delete-btn">Delete</button>
         </div>
     `;
     
-    document.getElementById('orders-container').prepend(orderDiv);
+    document.getElementById('orders-container').appendChild(orderElement);
 }
 
 // Update order status
-function updateOrderStatus(orderKey, newStatus) {
-    database.ref(`orders/${orderKey}`).update({
+function updateStatus(orderId, newStatus) {
+    database.ref(`orders/${orderId}`).update({
         status: newStatus
     }).then(() => {
-        console.log(`Order ${orderKey} status updated to ${newStatus}`);
+        const statusElement = document.querySelector(`#order-${orderId} .status-badge`);
+        if (statusElement) {
+            statusElement.className = `status-badge status-${newStatus.toLowerCase()}`;
+            statusElement.textContent = newStatus;
+        }
     }).catch(error => {
-        console.error('Error updating order status:', error);
+        console.error('Error updating status:', error);
         alert('Error updating order status');
     });
 }
 
-// Select all orders
-function selectAllOrders() {
-    const checkboxes = document.querySelectorAll('.order-checkbox');
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAllCheckbox.checked;
-    });
-}
-
-// Archive selected orders
-function archiveSelectedOrders() {
-    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
-    if (selectedOrders.length === 0) {
-        alert('Please select orders to archive');
-        return;
-    }
-
-    if (confirm(`Archive ${selectedOrders.length} selected orders?`)) {
-        selectedOrders.forEach(checkbox => {
-            const orderKey = checkbox.getAttribute('data-order-key');
-            archiveOrder(orderKey, false);
-        });
-        alert('Selected orders archived successfully');
-    }
-}
-
-// Delete selected orders
-function deleteSelectedOrders() {
-    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
-    if (selectedOrders.length === 0) {
-        alert('Please select orders to delete');
-        return;
-    }
-
-    if (confirm(`Delete ${selectedOrders.length} selected orders? This cannot be undone!`)) {
-        selectedOrders.forEach(checkbox => {
-            const orderKey = checkbox.getAttribute('data-order-key');
-            deleteOrder(orderKey, false);
-        });
-        alert('Selected orders deleted successfully');
-    }
-}
-
-// Archive order
-function archiveOrder(orderKey, showConfirmation = true) {
-    if (showConfirmation && !confirm('Archive this order? It will be moved to historical orders.')) {
-        return;
-    }
-
-    database.ref(`orders/${orderKey}`).once('value')
-        .then((snapshot) => {
-            const order = snapshot.val();
-            if (!order) return;
-
-            // Move to archived orders with date organization
-            return database.ref(`archivedOrders/${order.orderDate}/${orderKey}`).set({
-                ...order,
-                status: 'archived',
-                archivedAt: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => {
-                return database.ref(`orders/${orderKey}`).remove();
-            });
-        })
-        .then(() => {
-            const orderElement = document.getElementById(`order-${orderKey}`);
-            if (orderElement) {
-                orderElement.remove();
-            }
-            if (showConfirmation) {
-                alert('Order archived successfully');
-            }
-        })
-        .catch(error => {
-            console.error('Error archiving order:', error);
-            if (showConfirmation) {
-                alert('Error archiving order');
-            }
-        });
-}
-
-// Delete order
-function deleteOrder(orderKey, showConfirmation = true) {
-    if (showConfirmation && !confirm('Are you sure you want to delete this order? This action cannot be undone!')) {
-        return;
-    }
-
-    database.ref(`orders/${orderKey}`).remove()
-        .then(() => {
-            const orderElement = document.getElementById(`order-${orderKey}`);
-            if (orderElement) {
-                orderElement.remove();
-            }
-            if (showConfirmation) {
-                alert('Order deleted successfully');
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting order:', error);
-            if (showConfirmation) {
+// Delete single order
+function deleteOrder(orderId) {
+    if (confirm('Are you sure you want to delete this order?')) {
+        database.ref(`orders/${orderId}`).remove()
+            .then(() => {
+                const orderElement = document.getElementById(`order-${orderId}`);
+                if (orderElement) {
+                    orderElement.remove();
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting order:', error);
                 alert('Error deleting order');
-            }
-        });
+            });
+    }
+}
+
+// Initialize Firebase listeners
+function initializeOrders() {
+    const ordersRef = database.ref('orders');
+    
+    // Listen for new orders
+    ordersRef.on('child_added', (snapshot) => {
+        const orderId = snapshot.key;
+        const orderData = snapshot.val();
+        displayOrder(orderId, orderData);
+        
+        // Play notification sound for new orders
+        const audio = document.getElementById('notification-sound');
+        if (audio) {
+            audio.play().catch(e => console.log('Error playing sound:', e));
+        }
+    });
+    
+    // Listen for order updates
+    ordersRef.on('child_changed', (snapshot) => {
+        const orderId = snapshot.key;
+        const orderData = snapshot.val();
+        
+        // Remove old order display and add updated one
+        const oldOrder = document.getElementById(`order-${orderId}`);
+        if (oldOrder) {
+            oldOrder.remove();
+        }
+        displayOrder(orderId, orderData);
+    });
+    
+    // Listen for order removals
+    ordersRef.on('child_removed', (snapshot) => {
+        const orderId = snapshot.key;
+        const orderElement = document.getElementById(`order-${orderId}`);
+        if (orderElement) {
+            orderElement.remove();
+        }
+    });
 }
 
 // Initialize
@@ -198,10 +145,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load any existing orders
     database.ref('orders').once('value', function(snapshot) {
         snapshot.forEach(function(childSnapshot) {
-            const order = childSnapshot.val();
-            if (order.status !== 'archived') {
-                displayOrder(order, childSnapshot.key);
-            }
+            const orderId = childSnapshot.key;
+            const orderData = childSnapshot.val();
+            displayOrder(orderId, orderData);
         });
     });
+    initializeOrders();
 });

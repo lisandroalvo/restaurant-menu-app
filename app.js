@@ -266,14 +266,33 @@ function loadOrders() {
     });
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing app...');
-    initializeTable();
+// Update status display
+function updateOrderStatus(orderId, status) {
+    const statusElement = document.querySelector(`#order-${orderId} .status-badge`);
+    if (statusElement) {
+        statusElement.className = `status-badge status-${status.toLowerCase()}`;
+        statusElement.textContent = status;
+    }
+}
+
+// When page loads or QR is scanned
+window.onload = function() {
+    // Clear any previous cart data
+    cart = [];
+    total = 0;
     updateCartDisplay();
     
-    // If we're on the orders tab, load orders
-    if (document.getElementById('orders-tab')) {
-        loadOrders();
+    // Clear local storage for this table
+    localStorage.removeItem(`orders_table_${tableId}`);
+    
+    // Get table ID from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    tableId = urlParams.get('table');
+    
+    if (!tableId) {
+        alert('No table ID provided!');
+        return;
     }
-});
+    
+    document.getElementById('table-number').textContent = `Table ${tableId}`;
+};
