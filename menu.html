@@ -1,275 +1,42 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restaurant Menu</title>
-    <link rel="stylesheet" href="Style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        /* ... existing styles ... */
-        
-        .cart-icon {
-            position: relative;
-            font-size: 1.5em;
-            color: #333;
-        }
-
-        #cart-counter {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #ff4444;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #333;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 4px;
-            z-index: 1000;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .order-progress {
-            width: 100%;
-            height: 4px;
-            background-color: #eee;
-            border-radius: 2px;
-            margin: 10px 0;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background-color: #4CAF50;
-            transition: width 0.3s ease;
-        }
-
-        .order-status {
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .status-pending { color: #ff9800; }
-        .status-preparing { color: #2196F3; }
-        .status-completed { color: #4CAF50; }
-        .status-billed { color: #9E9E9E; }
-
-        #loading-spinner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-</head>
-<body>
-    <div class="header">
-        <h1>Restaurant Menu</h1>
-        <div id="table-info" class="table-info">Table: <span id="table-number">Loading...</span></div>
-        <div class="cart-icon" onclick="openTab('orders')">
-            <i class="fas fa-shopping-cart"></i>
-            <span id="cart-counter">0</span>
-        </div>
-    </div>
-
-    <div class="tabs">
-        <button class="tab-button active" onclick="openTab('menu')">Menu</button>
-        <button class="tab-button" onclick="openTab('orders')">
-            <div class="cart-icon">
-                <i class="fas fa-shopping-cart"></i>
-                <span id="cart-counter">0</span>
+<div id="menu" class="tab-content active">
+    <div class="menu-section">
+        <h2>Main Dishes</h2>
+        <div class="menu-items">
+            <div class="menu-item">
+                <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500')"></div>
+                <h3>Burger</h3>
+                <p>Delicious beef burger with cheese and fresh vegetables</p>
+                <span class="price">$10.99</span>
+                <button onclick="addToCart({name: 'Burger', price: 10.99})">Add to Cart</button>
             </div>
-        </button>
-    </div>
-
-    <div id="menu" class="tab-content active">
-        <div class="menu-section">
-            <h2>Main Dishes</h2>
-            <div class="menu-items">
-                <div class="menu-item">
-                    <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500')"></div>
-                    <h3>Burger</h3>
-                    <p>Delicious beef burger with cheese and fresh vegetables</p>
-                    <span class="price">$10.99</span>
-                    <button onclick="addToCart({name: 'Burger', price: 10.99})">Add to Cart</button>
-                </div>
-                <div class="menu-item">
-                    <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500')"></div>
-                    <h3>Pizza</h3>
-                    <p>Classic pepperoni pizza with mozzarella cheese</p>
-                    <span class="price">$12.99</span>
-                    <button onclick="addToCart({name: 'Pizza', price: 12.99})">Add to Cart</button>
-                </div>
-                <div class="menu-item">
-                    <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1569058242567-93de6f36f8eb?w=500')"></div>
-                    <h3>Pasta</h3>
-                    <p>Fresh pasta with homemade tomato sauce</p>
-                    <span class="price">$11.99</span>
-                    <button onclick="addToCart({name: 'Pasta', price: 11.99})">Add to Cart</button>
-                </div>
+            <div class="menu-item">
+                <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500')"></div>
+                <h3>Pizza</h3>
+                <p>Classic pepperoni pizza with mozzarella cheese</p>
+                <span class="price">$12.99</span>
+                <button onclick="addToCart({name: 'Pizza', price: 12.99})">Add to Cart</button>
             </div>
-        </div>
-
-        <div id="cart-container">
-            <h2>Your Cart</h2>
-            <div id="cart-items"></div>
-            <div id="cart-total">Total: $<span id="total">0.00</span></div>
-            <div class="cart-buttons">
-                <button onclick="placeOrder()" class="action-button order-btn">Place Order</button>
-                <button onclick="requestBill()" class="action-button request-bill">Request Bill</button>
+            <div class="menu-item">
+                <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1569058242567-93de6f36f8eb?w=500')"></div>
+                <h3>Pasta</h3>
+                <p>Fresh pasta with homemade tomato sauce</p>
+                <span class="price">$11.99</span>
+                <button onclick="addToCart({name: 'Pasta', price: 11.99})">Add to Cart</button>
             </div>
         </div>
     </div>
+</div>
 
-    <div id="orders" class="tab-content">
-        <h2>My Orders</h2>
-        <div id="orders-container"></div>
+<div id="orders" class="tab-content">
+    <div id="cart-container">
+        <h2>Your Cart</h2>
+        <div id="cart-items"></div>
+        <div id="cart-total">Total: $<span id="total">0.00</span></div>
+        <div class="cart-buttons">
+            <button onclick="placeOrder()" class="action-button order-btn">Place Order</button>
+            <button onclick="requestBill()" class="action-button request-bill" disabled>Request Bill</button>
+        </div>
     </div>
-
-    <div id="loading-spinner">
-        <div class="spinner"></div>
-    </div>
-
-    <script src="app.js"></script>
-
-    <script>
-        // Table ID handling
-        document.addEventListener('DOMContentLoaded', function() {
-            const params = new URLSearchParams(window.location.search);
-            const table = params.get('table');
-            
-            if (table) {
-                document.getElementById('table-number').textContent = table;
-                window.tableId = table;
-                console.log('Table ID set:', table);
-                // Load orders for this table
-                loadOrders();
-            } else {
-                console.error('No table ID in URL');
-                alert('Error: No table ID found. Please scan the QR code again.');
-                document.getElementById('cart-container').style.display = 'none';
-            }
-        });
-
-        // Tab switching
-        function openTab(tabName) {
-            // Hide all tab content
-            const tabContents = document.getElementsByClassName('tab-content');
-            for (let content of tabContents) {
-                content.classList.remove('active');
-            }
-
-            // Remove active class from all buttons
-            const tabButtons = document.getElementsByClassName('tab-button');
-            for (let button of tabButtons) {
-                button.classList.remove('active');
-            }
-
-            // Show the selected tab content
-            document.getElementById(tabName).classList.add('active');
-            
-            // Add active class to the clicked button
-            event.currentTarget.classList.add('active');
-
-            // Reload orders when switching to orders tab
-            if (tabName === 'orders') {
-                loadOrders();
-            }
-        }
-
-        // Load orders function
-        function loadOrders() {
-            const ordersContainer = document.getElementById('orders-container');
-            if (!window.tableId) return;
-
-            // Get orders from Firebase
-            firebase.database().ref('orders')
-                .orderByChild('tableId')
-                .equalTo(window.tableId)
-                .on('value', function(snapshot) {
-                    ordersContainer.innerHTML = '';
-                    
-                    if (!snapshot.exists()) {
-                        ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
-                        return;
-                    }
-
-                    snapshot.forEach(function(childSnapshot) {
-                        const order = childSnapshot.val();
-                        const orderElement = document.createElement('div');
-                        orderElement.className = 'order-card';
-                        
-                        const items = order.items.map(item => 
-                            `<div class="order-item">
-                                <span>${item.name}</span>
-                                <span>$${item.price.toFixed(2)}</span>
-                            </div>`
-                        ).join('');
-
-                        orderElement.innerHTML = `
-                            <div class="order-header">
-                                <span class="order-id">Order #${childSnapshot.key.slice(-4)}</span>
-                                <span class="order-status ${order.status}">${order.status}</span>
-                            </div>
-                            <div class="order-items">${items}</div>
-                            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                            <div class="order-time">Ordered at: ${order.orderTime}</div>
-                        `;
-                        
-                        ordersContainer.appendChild(orderElement);
-                    });
-                });
-        }
-    </script>
-</body>
-</html>
+    <h2>My Orders</h2>
+    <div id="orders-container"></div>
+</div>

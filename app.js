@@ -28,9 +28,7 @@ function addToCart(item) {
     cart.push(item);
     total += item.price;
     updateCart();
-    // Show notification
     showNotification('Item added to cart');
-    // Update cart counter
     updateCartCounter();
 }
 
@@ -87,9 +85,9 @@ function placeOrder() {
             updateCart();
             hideSpinner();
             showNotification('Order placed successfully!');
-            // Switch to orders tab and update counter
             openTab('orders');
             updateCartCounter();
+            loadOrders(); // Reload orders after placing new order
         })
         .catch((error) => {
             console.error('Error placing order:', error);
@@ -99,7 +97,7 @@ function placeOrder() {
 }
 
 // Request bill function
-function requestBill(orderId) {
+function requestBill() {
     const tableId = getTableId();
     
     if (!tableId) {
@@ -109,20 +107,34 @@ function requestBill(orderId) {
 
     showSpinner();
 
-    database.ref('orders').child(orderId).once('value')
+    // Get all completed orders for this table
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(tableId)
+        .once('value')
         .then((snapshot) => {
-            const order = snapshot.val();
-            if (!order) {
-                throw new Error('Order not found');
-            }
-            if (order.status !== 'completed') {
-                throw new Error('Cannot request bill until order is completed');
+            let completedOrders = [];
+            let totalBill = 0;
+
+            snapshot.forEach((childSnapshot) => {
+                const order = childSnapshot.val();
+                if (order.status === 'completed') {
+                    completedOrders.push({
+                        orderId: childSnapshot.key,
+                        ...order
+                    });
+                    totalBill += order.total;
+                }
+            });
+
+            if (completedOrders.length === 0) {
+                throw new Error('No completed orders to bill');
             }
 
             const billRequest = {
-                orderId: orderId,
                 tableId: tableId,
-                total: order.total,
+                orders: completedOrders,
+                total: totalBill,
                 status: 'pending',
                 timestamp: Date.now()
             };
@@ -132,7 +144,10 @@ function requestBill(orderId) {
         .then(() => {
             hideSpinner();
             showNotification('Bill requested! Please wait for the staff.');
-            return database.ref('orders').child(orderId).update({ status: 'billed' });
+            // Update all completed orders to billed status
+            return Promise.all(completedOrders.map(order => 
+                database.ref('orders').child(order.orderId).update({ status: 'billed' })
+            ));
         })
         .catch((error) => {
             console.error('Error requesting bill:', error);
@@ -146,13 +161,9 @@ function updateCartCounter() {
     const counter = document.getElementById('cart-counter');
     if (!counter) return;
 
-    // Count both items in cart and active orders
     const cartItemCount = cart.length;
-    const activeOrders = document.querySelectorAll('.order-card').length;
-    const totalCount = cartItemCount + activeOrders;
-
-    counter.textContent = totalCount;
-    counter.style.display = totalCount > 0 ? 'flex' : 'none';
+    counter.textContent = cartItemCount;
+    counter.style.display = cartItemCount > 0 ? 'flex' : 'none';
 }
 
 // Show notification
@@ -162,7 +173,6 @@ function showNotification(message) {
     notification.textContent = message;
     document.body.appendChild(notification);
 
-    // Remove notification after 3 seconds
     setTimeout(() => {
         notification.remove();
     }, 3000);
@@ -177,6 +187,114 @@ function showSpinner() {
 function hideSpinner() {
     const spinner = document.getElementById('loading-spinner');
     if (spinner) spinner.style.display = 'none';
+}
+
+// Load orders function
+function loadOrders() {
+    const ordersContainer = document.getElementById('orders-container');
+    const requestBillBtn = document.querySelector('.request-bill');
+    if (!window.tableId || !ordersContainer) return;
+
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(window.tableId)
+        .on('value', function(snapshot) {
+            ordersContainer.innerHTML = '';
+            let hasCompletedOrders = false;
+            
+            if (!snapshot.exists()) {
+                ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
+                if (requestBillBtn) requestBillBtn.disabled = true;
+                return;
+            }
+
+            snapshot.forEach(function(childSnapshot) {
+                const order = childSnapshot.val();
+                const orderElement = document.createElement('div');
+                orderElement.className = 'order-card';
+                
+                if (order.status === 'completed') {
+                    hasCompletedOrders = true;
+                }
+
+                const items = order.items.map(item => 
+                    `<div class="order-item">
+                        <span>${item.name}</span>
+                        <span>$${item.price.toFixed(2)}</span>
+                    </div>`
+                ).join('');
+
+                const statusClass = `status-${order.status}`;
+                orderElement.innerHTML = `
+                    <div class="order-header">
+                        <span class="order-id">Order #${childSnapshot.key.slice(-4)}</span>
+                        <span class="order-status ${statusClass}">${order.status}</span>
+                    </div>
+                    <div class="order-progress">
+                        <div class="progress-bar" style="width: ${getProgressWidth(order.status)}"></div>
+                    </div>
+                    <div class="order-items">${items}</div>
+                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                    <div class="order-time">Ordered at: ${order.orderTime}</div>
+                `;
+                
+                ordersContainer.appendChild(orderElement);
+            });
+
+            // Enable/disable request bill button based on completed orders
+            if (requestBillBtn) {
+                requestBillBtn.disabled = !hasCompletedOrders;
+            }
+        });
+}
+
+// Helper function to get progress bar width
+function getProgressWidth(status) {
+    switch(status) {
+        case 'pending': return '25%';
+        case 'preparing': return '50%';
+        case 'completed': return '75%';
+        case 'billed': return '100%';
+        default: return '0%';
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const table = params.get('table');
+    
+    if (table) {
+        document.getElementById('table-number').textContent = table;
+        window.tableId = table;
+        console.log('Table ID set:', table);
+        loadOrders();
+    } else {
+        console.error('No table ID in URL');
+        alert('Error: No table ID found. Please scan the QR code again.');
+    }
+});
+
+// Tab switching
+function openTab(tabName) {
+    const tabContents = document.getElementsByClassName('tab-content');
+    for (let content of tabContents) {
+        content.classList.remove('active');
+    }
+
+    const tabButtons = document.getElementsByClassName('tab-button');
+    for (let button of tabButtons) {
+        button.classList.remove('active');
+    }
+
+    document.getElementById(tabName).classList.add('active');
+    
+    // Add active class to the clicked button
+    event.currentTarget.classList.add('active');
+
+    if (tabName === 'orders') {
+        loadOrders();
+    }
 }
 
 // Listen for order status changes
