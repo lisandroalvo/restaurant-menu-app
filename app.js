@@ -16,6 +16,7 @@ if (!firebase.apps.length) {
 }
 const database = firebase.database();
 
+// Initialize variables
 let cart = [];
 let total = 0;
 let tableId = null;
@@ -139,36 +140,36 @@ function placeOrder() {
 }
 
 // Request bill function
-function requestBill(orderKey) {
-    const billRequest = {
-        orderKey: orderKey,
-        tableId: tableId,
-        timestamp: Date.now(),
-        status: 'pending'
-    };
+function requestBill() {
+    if (!tableId) {
+        alert('No table ID found!');
+        return;
+    }
 
-    database.ref('billRequests').push(billRequest)
-        .then(() => {
-            // Update local storage
-            const orders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
-            const updatedOrders = orders.map(order => {
-                if (order.key === orderKey) {
-                    return { ...order, billRequested: true };
-                }
-                return order;
-            });
-            localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(updatedOrders));
-            
-            // Update UI
-            const button = document.querySelector(`button[data-order-key="${orderKey}"]`);
-            if (button) {
-                button.textContent = 'Bill Requested';
-                button.disabled = true;
+    // Get all orders for this table from Firebase
+    database.ref('orders').orderByChild('tableId').equalTo(tableId).once('value')
+        .then((snapshot) => {
+            if (!snapshot.exists()) {
+                alert('No orders found for this table!');
+                return;
             }
-            
-            alert('Bill request sent! The restaurant will send your bill shortly.');
+
+            // Create bill request
+            const billRequest = {
+                tableId: tableId,
+                status: 'pending',
+                timestamp: Date.now(),
+                requestDate: new Date().toISOString().split('T')[0],
+                requestTime: new Date().toLocaleTimeString()
+            };
+
+            // Send bill request to Firebase
+            return database.ref('billRequests').push(billRequest);
         })
-        .catch(error => {
+        .then(() => {
+            alert('Bill requested! Please wait for the staff to process it.');
+        })
+        .catch((error) => {
             console.error('Error requesting bill:', error);
             alert('Error requesting bill. Please try again.');
         });
@@ -275,17 +276,20 @@ function updateOrderStatus(orderId, status) {
     }
 }
 
-// When page loads or QR is scanned
-window.onload = function() {
-    // Clear any previous cart data
+// Clear all data function
+function clearAllData() {
+    // Clear cart
     cart = [];
     total = 0;
     updateCartDisplay();
     
-    // Clear local storage for this table
-    localStorage.removeItem(`orders_table_${tableId}`);
+    // Clear all local storage for this table
+    if (tableId) {
+        localStorage.removeItem(`orders_table_${tableId}`);
+        localStorage.removeItem(`cart_table_${tableId}`);
+    }
     
-    // Get table ID from URL parameter
+    // Get new table ID from URL
     const urlParams = new URLSearchParams(window.location.search);
     tableId = urlParams.get('table');
     
@@ -294,5 +298,12 @@ window.onload = function() {
         return;
     }
     
-    document.getElementById('table-number').textContent = `Table ${tableId}`;
+    // Update table number display
+    document.getElementById('table-number').textContent = tableId;
+}
+
+// When page loads or QR is scanned
+window.onload = function() {
+    clearAllData();
+    initializeTable();
 };

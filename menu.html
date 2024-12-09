@@ -231,16 +231,12 @@
             </div>
 
             <!-- Cart Section -->
-            <div class="cart-section">
-                <h2>Your Cart</h2>
-                <ul id="cart-items"></ul>
-                <div class="cart-total">
-                    Total: $<span id="total">0.00</span>
-                </div>
-                <div class="cart-actions">
-                    <button onclick="clearCart()" class="clear-cart-btn">Clear Cart</button>
-                    <button onclick="placeOrder()" id="order-btn" style="display: none;">Place Order</button>
-                </div>
+            <div id="cart-container">
+                <h2>Your Cart - Table <span id="table-number"></span></h2>
+                <div id="cart-items"></div>
+                <div id="cart-total">Total: $<span id="total">0.00</span></div>
+                <button onclick="placeOrder()" class="action-button">Place Order</button>
+                <button onclick="requestBill()" class="action-button request-bill">Request Bill</button>
             </div>
         </div>
 
