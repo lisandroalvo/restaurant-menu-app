@@ -23,6 +23,95 @@ function getTableId() {
     return window.tableId || null;
 }
 
+// Add to cart function
+function addToCart(item) {
+    cart.push(item);
+    total += item.price;
+    updateCart();
+    showNotification('Item added to cart');
+    updateCartCounter();
+    
+    // Show cart sidebar when adding items
+    const cartSidebar = document.getElementById('cart-sidebar');
+    if (cartSidebar) {
+        cartSidebar.classList.add('active');
+        updateActiveOrders();
+    }
+}
+
+// Update cart display
+function updateCart() {
+    const cartItems = document.getElementById('cart-items');
+    const totalElement = document.getElementById('total');
+    const floatingTotalElement = document.getElementById('floating-total');
+    
+    if (cartItems) {
+        cartItems.innerHTML = cart.map(item => `
+            <div class="cart-item">
+                <span>${item.name}</span>
+                <span>$${item.price.toFixed(2)}</span>
+            </div>
+        `).join('');
+    }
+    
+    if (totalElement) {
+        totalElement.textContent = total.toFixed(2);
+    }
+
+    if (floatingTotalElement) {
+        floatingTotalElement.textContent = total.toFixed(2);
+    }
+
+    // Update cart counter
+    updateCartCounter();
+}
+
+// Update cart counter
+function updateCartCounter() {
+    const counter = document.getElementById('cart-counter');
+    if (counter) {
+        counter.style.display = cart.length > 0 ? 'flex' : 'none';
+        counter.textContent = cart.length;
+    }
+}
+
+// Place order function
+function placeOrder() {
+    if (cart.length === 0) {
+        showNotification('Cart is empty');
+        return;
+    }
+
+    const tableId = getTableId();
+    if (!tableId) {
+        showNotification('Table ID not found');
+        return;
+    }
+
+    const orderId = Date.now().toString();
+    const order = {
+        id: orderId,
+        tableId: tableId,
+        items: [...cart],
+        total: total,
+        status: 'pending',
+        timestamp: Date.now()
+    };
+
+    database.ref(`orders/${tableId}/${orderId}`).set(order)
+        .then(() => {
+            cart = [];
+            total = 0;
+            updateCart();
+            showNotification('Order placed successfully');
+            updateActiveOrders();
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            showNotification('Error placing order');
+        });
+}
+
 // Create order status card
 function createOrderStatusCard(order) {
     const statusMap = {
@@ -88,52 +177,12 @@ function updateActiveOrders() {
 
 // Toggle cart sidebar
 function toggleCart() {
-    const cartSidebar = document.querySelector('.cart-sidebar');
-    cartSidebar.classList.toggle('active');
-    updateActiveOrders(); // Update orders when opening cart
-}
-
-// Add to cart function
-function addToCart(item) {
-    cart.push(item);
-    total += item.price;
-    updateCart();
-    showNotification('Item added to cart');
-    updateCartCounter();
-    
-    // Show cart sidebar when adding items
-    const cartSidebar = document.querySelector('.cart-sidebar');
-    cartSidebar.classList.add('active');
-}
-
-// Update cart display
-function updateCart() {
-    const cartItems = document.getElementById('cart-items');
-    const totalElement = document.getElementById('total');
-    const floatingTotalElement = document.getElementById('floating-total');
-    
-    if (cartItems) {
-        cartItems.innerHTML = cart.map(item => `
-            <div class="cart-item">
-                <span>${item.name}</span>
-                <span>$${item.price.toFixed(2)}</span>
-            </div>
-        `).join('');
-    }
-    
-    if (totalElement) {
-        totalElement.textContent = total.toFixed(2);
-    }
-
-    if (floatingTotalElement) {
-        floatingTotalElement.textContent = total.toFixed(2);
-    }
-
-    // Update cart counter visibility
-    const counter = document.getElementById('cart-counter');
-    if (counter) {
-        counter.style.display = cart.length > 0 ? 'flex' : 'none';
-        counter.textContent = cart.length;
+    const cartSidebar = document.getElementById('cart-sidebar');
+    if (cartSidebar) {
+        cartSidebar.classList.toggle('active');
+        if (cartSidebar.classList.contains('active')) {
+            updateActiveOrders();
+        }
     }
 }
 
@@ -210,43 +259,6 @@ function listenToOrders() {
     });
 }
 
-// Place order function
-function placeOrder() {
-    if (cart.length === 0) {
-        showNotification('Cart is empty');
-        return;
-    }
-
-    const tableId = getTableId();
-    if (!tableId) {
-        showNotification('Table ID not found');
-        return;
-    }
-
-    const orderId = Date.now().toString();
-    const order = {
-        id: orderId,
-        tableId: tableId,
-        items: [...cart],
-        total: total,
-        status: 'pending',
-        timestamp: Date.now()
-    };
-
-    database.ref(`orders/${tableId}/${orderId}`).set(order)
-        .then(() => {
-            cart = [];
-            total = 0;
-            updateCart();
-            showNotification('Order placed successfully');
-            toggleCart(); // Close cart sidebar
-        })
-        .catch((error) => {
-            showNotification('Error placing order');
-            console.error('Error:', error);
-        });
-}
-
 // Request bill function
 function requestBill() {
     const tableId = getTableId();
@@ -305,39 +317,6 @@ function requestBill() {
             hideSpinner();
             alert(error.message || 'Error requesting bill. Please try again.');
         });
-}
-
-// Update cart counter
-function updateCartCounter() {
-    const counter = document.getElementById('cart-counter');
-    if (!counter) return;
-
-    const cartItemCount = cart.length;
-    counter.textContent = cartItemCount;
-    counter.style.display = cartItemCount > 0 ? 'flex' : 'none';
-}
-
-// Show notification
-function showNotification(message) {
-    const notification = document.createElement('div');
-    notification.className = 'notification';
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
-
-// Helper functions for spinner
-function showSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'flex';
-}
-
-function hideSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'none';
 }
 
 // Load orders function
@@ -410,6 +389,29 @@ function getProgressWidth(status) {
     }
 }
 
+// Show notification
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Helper functions for spinner
+function showSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'flex';
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+}
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
@@ -473,73 +475,4 @@ window.onload = function() {
 
     // Initialize table and display table number
     document.getElementById('table-number').textContent = id;
-}
-// Create order status card
-function createOrderStatusCard(order) {
-    const statusMap = {
-        'pending': { text: 'Order Received', color: '#ffc107' },
-        'preparing': { text: 'Preparing Your Order', color: '#17a2b8' },
-        'completed': { text: 'Ready to Serve', color: '#28a745' }
-    };
-
-    const status = statusMap[order.status] || statusMap.pending;
-    const orderCard = document.createElement('div');
-    orderCard.className = 'order-status-card';
-    orderCard.id = `order-status-${order.id}`;
-    
-    orderCard.innerHTML = `
-        <div class="order-status-header">
-            <span class="status-pulse ${order.status}"></span>
-            <span>${status.text}</span>
-        </div>
-        <div class="status-animation"></div>
-        <div class="order-items">
-            ${order.items.map(item => `
-                <div class="order-item">
-                    <span>${item.name}</span>
-                    <span>$${item.price.toFixed(2)}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-
-    return orderCard;
-}
-
-// Update active orders in sidebar
-function updateActiveOrders() {
-    const activeOrdersContainer = document.getElementById('active-orders');
-    if (!activeOrdersContainer) return;
-
-    const tableId = getTableId();
-    if (!tableId) return;
-
-    database.ref(`orders/${tableId}`).on('value', (snapshot) => {
-        activeOrdersContainer.innerHTML = '';
-        
-        if (snapshot.exists()) {
-            const orders = [];
-            snapshot.forEach((childSnapshot) => {
-                const order = childSnapshot.val();
-                if (order.status !== 'billed') {
-                    orders.push(order);
-                }
-            });
-
-            // Sort orders by timestamp (newest first)
-            orders.sort((a, b) => b.timestamp - a.timestamp);
-
-            orders.forEach(order => {
-                const orderCard = createOrderStatusCard(order);
-                activeOrdersContainer.appendChild(orderCard);
-            });
-        }
-    });
-}
-
-// Toggle cart sidebar
-function toggleCart() {
-    const cartSidebar = document.querySelector('.cart-sidebar');
-    cartSidebar.classList.toggle('active');
-    updateActiveOrders(); // Update orders when opening cart
 }
