@@ -209,7 +209,12 @@
     </div>
 
     <div class="menu-container">
-        <div id="menu-tab" class="tab-content">
+        <div class="tab-buttons">
+            <button onclick="switchTab('menu')" class="tab-btn active">Menu</button>
+            <button onclick="switchTab('orders')" class="tab-btn">My Orders</button>
+        </div>
+
+        <div id="menu-tab" class="tab-content active">
             <!-- Menu items -->
             <div class="menu-section">
                 <h2>Main Dishes</h2>
@@ -218,15 +223,14 @@
                         <h3>Burger</h3>
                         <p>Delicious beef burger with cheese</p>
                         <span class="price">$10.99</span>
-                        <button onclick="addToCart('Burger', 10.99)">Add to Cart</button>
+                        <button onclick="addToCart({name: 'Burger', price: 10.99})">Add to Cart</button>
                     </div>
                     <div class="menu-item">
                         <h3>Pizza</h3>
                         <p>Classic pepperoni pizza</p>
                         <span class="price">$12.99</span>
-                        <button onclick="addToCart('Pizza', 12.99)">Add to Cart</button>
+                        <button onclick="addToCart({name: 'Pizza', price: 12.99})">Add to Cart</button>
                     </div>
-                    <!-- Add more menu items as needed -->
                 </div>
             </div>
 
@@ -240,7 +244,7 @@
             </div>
         </div>
 
-        <div id="orders-tab" class="tab-content" style="display: none;">
+        <div id="orders-tab" class="tab-content">
             <h2>My Orders</h2>
             <div id="orders-container"></div>
         </div>
@@ -257,6 +261,7 @@
     <script src="app.js"></script>
 
     <script>
+        // Table ID handling
         document.addEventListener('DOMContentLoaded', function() {
             const params = new URLSearchParams(window.location.search);
             const table = params.get('table');
@@ -265,19 +270,35 @@
                 document.getElementById('table-number').textContent = table;
                 window.tableId = table; // Store globally
                 console.log('Table ID set:', table);
-                document.getElementById('cart-container').style.display = 'block';
             } else {
                 console.error('No table ID in URL');
                 alert('Error: No table ID found. Please scan the QR code again.');
                 document.getElementById('cart-container').style.display = 'none';
             }
         });
-    </script>
 
-    <div class="tab-buttons">
-        <button onclick="switchTab('menu')" class="tab-btn active">Menu</button>
-        <button onclick="switchTab('orders')" class="tab-btn">My Orders</button>
-    </div>
+        // Tab switching function
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase().includes(tabName)) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            document.getElementById(tabName + '-tab').style.display = 'block';
+        }
+
+        // Initialize with menu tab active
+        document.addEventListener('DOMContentLoaded', function() {
+            switchTab('menu');
+        });
+    </script>
 
     <section>
         <h2>Your Bill</h2>
