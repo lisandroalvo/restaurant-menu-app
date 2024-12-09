@@ -11,7 +11,11 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+// Get database reference
 const database = firebase.database();
 const ordersRef = database.ref('orders');
 
@@ -20,10 +24,8 @@ const notificationSound = document.getElementById('notification-sound');
 
 // Function to play notification sound
 function playNotificationSound() {
-    try {
-        notificationSound.play().catch(error => console.log('Error playing sound:', error));
-    } catch (error) {
-        console.error('Error with audio:', error);
+    if (notificationSound) {
+        notificationSound.play().catch(error => console.error('Error playing sound:', error));
     }
 }
 
@@ -35,27 +37,31 @@ function clearOrdersContainer() {
     }
 }
 
-// Load all pending orders
+// Load all active orders
 function loadPendingOrders() {
     console.log('Loading pending orders...');
     clearOrdersContainer();
     
     ordersRef.orderByChild('status')
         .equalTo('pending')
-        .once('value')
-        .then(snapshot => {
-            console.log('Received pending orders:', snapshot.val());
-            snapshot.forEach(childSnapshot => {
-                const order = childSnapshot.val();
-                displayOrder(order, childSnapshot.key);
-            });
-        })
-        .catch(error => console.error('Error loading pending orders:', error));
+        .once('value', function(snapshot) {
+            console.log('Pending orders snapshot:', snapshot.val());
+            if (snapshot.exists()) {
+                snapshot.forEach(function(childSnapshot) {
+                    const order = childSnapshot.val();
+                    displayOrder(order, childSnapshot.key);
+                });
+            } else {
+                console.log('No pending orders found');
+            }
+        }, function(error) {
+            console.error('Error loading pending orders:', error);
+        });
 }
 
 // Display order in the orders container
 function displayOrder(order, orderKey) {
-    console.log('Displaying order:', orderKey, order);
+    console.log('Displaying order:', { orderKey, order });
     
     const orderDiv = document.createElement('div');
     orderDiv.className = 'order-card';
@@ -99,13 +105,16 @@ function displayOrder(order, orderKey) {
         return;
     }
     
-    // Insert new orders at the top
-    ordersContainer.insertBefore(orderDiv, ordersContainer.firstChild);
+    if (ordersContainer.firstChild) {
+        ordersContainer.insertBefore(orderDiv, ordersContainer.firstChild);
+    } else {
+        ordersContainer.appendChild(orderDiv);
+    }
 }
 
 // Update order status
 function updateOrderStatus(orderKey, newStatus) {
-    console.log('Updating order status:', orderKey, newStatus);
+    console.log('Updating order status:', { orderKey, newStatus });
     ordersRef.child(orderKey).update({ status: newStatus })
         .then(() => console.log(`Order ${orderKey} status updated to ${newStatus}`))
         .catch(error => {
@@ -121,7 +130,9 @@ function archiveOrder(orderKey) {
     ordersRef.child(orderKey).once('value')
         .then(snapshot => {
             const order = snapshot.val();
-            if (!order) return;
+            if (!order) {
+                throw new Error('Order not found');
+            }
             
             return database.ref(`archivedOrders/${order.orderDate}/${orderKey}`).set({
                 ...order,
@@ -131,7 +142,9 @@ function archiveOrder(orderKey) {
         })
         .then(() => {
             const orderElement = document.getElementById(`order-${orderKey}`);
-            if (orderElement) orderElement.remove();
+            if (orderElement) {
+                orderElement.remove();
+            }
         })
         .catch(error => {
             console.error('Error archiving order:', error);
@@ -146,7 +159,9 @@ function deleteOrder(orderKey) {
     ordersRef.child(orderKey).remove()
         .then(() => {
             const orderElement = document.getElementById(`order-${orderKey}`);
-            if (orderElement) orderElement.remove();
+            if (orderElement) {
+                orderElement.remove();
+            }
         })
         .catch(error => {
             console.error('Error deleting order:', error);
@@ -161,40 +176,60 @@ function selectAllOrders() {
     checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
 }
 
-// Real-time listeners
+// Listen for new orders
 ordersRef.on('child_added', function(snapshot) {
-    console.log('New order received:', snapshot.key);
+    console.log('New order received:', snapshot.key, snapshot.val());
     const order = snapshot.val();
-    if (order.status !== 'archived') {
+    if (order && order.status !== 'archived') {
         displayOrder(order, snapshot.key);
         playNotificationSound();
     }
 });
 
+// Listen for order changes
 ordersRef.on('child_changed', function(snapshot) {
-    console.log('Order updated:', snapshot.key);
+    console.log('Order updated:', snapshot.key, snapshot.val());
     const order = snapshot.val();
     const orderElement = document.getElementById(`order-${snapshot.key}`);
+    
     if (orderElement) {
         if (order.status === 'archived') {
             orderElement.remove();
         } else {
+            // Re-render the order
             orderElement.remove();
             displayOrder(order, snapshot.key);
         }
     }
 });
 
+// Listen for order removals
 ordersRef.on('child_removed', function(snapshot) {
     console.log('Order removed:', snapshot.key);
     const orderElement = document.getElementById(`order-${snapshot.key}`);
-    if (orderElement) orderElement.remove();
+    if (orderElement) {
+        orderElement.remove();
+    }
 });
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initialized');
+    
+    // Test database connection
+    database.ref('.info/connected').on('value', function(snapshot) {
+        console.log('Database connection status:', snapshot.val());
+    });
+    
+    // Load initial orders
     loadPendingOrders();
+    
+    // Set up error handling for database
+    database.ref('.info/connected').on('value', function(snapshot) {
+        if (!snapshot.val()) {
+            console.error('Database disconnected');
+        }
+    });
 });
 
 // Load historical orders

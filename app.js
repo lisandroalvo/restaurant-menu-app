@@ -91,15 +91,9 @@ function placeOrder() {
         return;
     }
 
-    // Create a new order reference first
-    const newOrderRef = database.ref('orders').push();
-    
-    // Get the key
-    const orderKey = newOrderRef.key;
-
     const orderData = {
         tableId: tableId,
-        items: cart,
+        items: cart.map(item => ({...item})), // Create a clean copy of items
         total: total,
         status: 'pending',
         timestamp: Date.now(),
@@ -108,22 +102,26 @@ function placeOrder() {
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true 
-        }),
-        billRequested: false
+        })
     };
 
-    console.log('Sending order:', orderData);
+    console.log('Preparing to send order:', orderData);
 
-    // Set the data using the reference
+    // Create a new reference and get the key
+    const newOrderRef = database.ref('orders').push();
+    const orderKey = newOrderRef.key;
+
+    // Set the data with the key
     newOrderRef.set(orderData)
         .then(() => {
             console.log('Order sent successfully with key:', orderKey);
             
-            // Save to local storage with table ID
+            // Save to local storage
             const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
             myOrders.push({
                 key: orderKey,
-                ...orderData
+                ...orderData,
+                timestamp: Date.now() // Update timestamp for local storage
             });
             localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(myOrders));
             
@@ -132,6 +130,16 @@ function placeOrder() {
             
             // Show success message
             alert('Order placed successfully!');
+            
+            // Verify the order was saved
+            return database.ref(`orders/${orderKey}`).once('value');
+        })
+        .then((snapshot) => {
+            if (!snapshot.exists()) {
+                console.error('Order verification failed - order not found in database');
+                throw new Error('Order verification failed');
+            }
+            console.log('Order verified in database:', snapshot.val());
             
             // Switch to orders tab
             switchTab('orders');
