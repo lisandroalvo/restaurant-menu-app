@@ -1,3 +1,4 @@
+// Firebase Configuration
 var firebaseConfig = {
     apiKey: "AIzaSyD3hZhuy9c1TnpZV6rEpuJH8zJ6bIuaOTg",
     authDomain: "restaurant-x-7baa2.firebaseapp.com",
@@ -11,159 +12,247 @@ var firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-var database = firebase.database();
+const database = firebase.database();
 
-// Listen for new orders and display them along with tableId
-database.ref('orders').on('value', function(snapshot) {
-    const ordersList = document.getElementById('orders');
-    ordersList.innerHTML = ''; // Clear current list before adding new orders
+// Audio for notifications
+const audio = new Audio('notification.mp3');
 
-    snapshot.forEach(function(orderSnapshot) {
-        var orderData = orderSnapshot.val();
-        var orderKey = orderSnapshot.key;
-
-        // Create a list item to display the order details
-        var li = document.createElement('li');
-        li.innerHTML = `
-            <strong>Order from Table ${orderData.tableId}</strong> <br>
-            Items: ${orderData.order.map(item => item.item).join(', ')} <br>
-            Total: $${orderData.total.toFixed(2)} <br>
-            Status: ${orderData.status} <br>
-            <button onclick="updateOrderStatus('${orderKey}', 'completed')">Mark as Completed</button>
-        `;
-
-        // Append the order to the list
-        ordersList.appendChild(li);
-    });
-});
-
-// Function to update the order status from the dashboard
-function updateOrderStatus(orderKey, newStatus) {
-    console.log(`Updating order ${orderKey} to status ${newStatus}`); // Debugging line
-    database.ref('orders/' + orderKey).update({ status: newStatus });
-}
-
-// Variable to track the number of orders for notification purposes
-let lastSnapshotSize = 0;
-
-// Function to play notification sound for new orders
-function playNotificationSound() {
-    var audio = new Audio('notification-sound.mp3');  // Ensure the file is in the same directory
-    audio.play();
-}
-
-// Listen for new orders and play notification if there are new ones
-database.ref('orders').on('value', function(snapshot) {
-    const ordersList = document.getElementById('orders');
-    ordersList.innerHTML = ''; // Clear the current list of orders before adding new ones
-
-    console.log("Snapshot received with " + snapshot.numChildren() + " orders.");
-
-    if (snapshot.numChildren() > lastSnapshotSize) {
-        console.log("New order detected");
-        playNotificationSound();  // Play sound if a new order is detected
-    }
-
-    // Update the last snapshot size
-    lastSnapshotSize = snapshot.numChildren();
-
-    snapshot.forEach(function(orderSnapshot) {
-        var order = orderSnapshot.val();
-        var orderKey = orderSnapshot.key;
-
-        // Check if the 'order' field exists and is an array before calling .map()
-        let itemsList = order.order && Array.isArray(order.order) ? order.order.map(i => i.item).join(', ') : 'No items available';
-
-        // Create the list item for the order
-        var li = document.createElement('li');
-        li.innerHTML = `
-            <strong>Order at ${order.timestamp}</strong>: ${itemsList} - Total: $${order.total}
-            <br>
-            <select onchange="updateOrderStatus('${orderKey}', this.value)">
-                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
-                <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
-                <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
-            </select>
-        `;
-
-        ordersList.appendChild(li);
-    });
-});
-
-// Function to handle bill requests
-
-// Listen for bill requests in real-time
-database.ref('/billRequests').on('value', (snapshot) => {
-    const billRequests = snapshot.val();
-    displayRequests(billRequests); // Function to show the requests on the dashboard
-});
-
-function displayRequests(requests) {
-    const requestsList = document.getElementById('bill-requests'); // A new HTML section for bill requests
-    requestsList.innerHTML = '';  // Clear existing requests
-
-    // Display a notification or a popup for each requested table
-    for (const table in requests) {
-        if (requests[table].status === 'requesting') {
-            // Create an item to display the bill request
-            let listItem = document.createElement('li');
-            listItem.innerHTML = `
-                Table ${table} has requested the bill. 
-                <button onclick="viewBillDetails('${table}')">View Bill</button>
-            `;
-            requestsList.appendChild(listItem);
-        }
-    }
-}
-
-// Function to view the bill details
-function viewBillDetails(tableId) {
-    // Retrieve all orders for the given tableId
-    firebase.database().ref(`/orders`).orderByChild('tableId').equalTo(tableId).once('value', function(snapshot) {
-        if (snapshot.exists()) {
-            let total = 0;
-            let orderDetails = [];
-
-            snapshot.forEach(function(orderSnapshot) {
-                const order = orderSnapshot.val();
-                orderDetails = orderDetails.concat(order.order); // Collect all items
-                total += order.total; // Add up the total for all orders
-            });
-
-            // Show the bill details to the restaurant staff
-            const billDetails = `
-                <h3>Bill for Table ${tableId}</h3>
-                Items: ${orderDetails.map(i => `${i.item} - $${i.price}`).join(', ')}
-                <br>Total: $${total}
-                <button onclick="sendFinalBill('${tableId}', ${total}, ${JSON.stringify(orderDetails)})">Send Bill to Client</button>
-            `;
-            document.getElementById('bill-details').innerHTML = billDetails;
-        } else {
-            alert('No orders found for this table.');
-        }
-    });
-}
-
-// Function to send the final bill to the client
-function sendFinalBill(tableId, total, orderDetails) {
-    // Send the bill to the client's app
-    const bill = {
-        items: orderDetails,
-        total: total,
-        date: new Date().toISOString(),
-        status: 'sent'
-    };
-
-    // Save the bill in Firebase under the "bills" node
-    firebase.database().ref(`/bills/${tableId}`).set(bill);
+// Listen for new orders
+database.ref('orders').on('child_added', function(snapshot) {
+    const order = snapshot.val();
+    const orderKey = snapshot.key;
     
-    // Update the bill request status to 'sent' to mark it as completed
-    firebase.database().ref(`/billRequests/${tableId}`).update({ status: 'sent' });
+    if (order.status !== 'archived') {
+        displayOrder(order, orderKey);
+        playNotificationSound();
+    }
+});
 
-    alert(`Bill sent to Table ${tableId}`);
+function playNotificationSound() {
+    try {
+        audio.play().catch(error => console.log('Error playing sound:', error));
+    } catch (error) {
+        console.log('Error with audio:', error);
+    }
 }
 
-// Utility function to calculate the total amount of the bill
-function calculateTotal(orderDetails) {
-    return orderDetails.reduce((total, item) => total + item.price, 0);
+// Display order in the orders container
+function displayOrder(order, orderKey) {
+    const orderDiv = document.createElement('div');
+    orderDiv.className = 'order-card';
+    orderDiv.id = `order-${orderKey}`;
+    
+    const itemsList = order.items.map(item => 
+        `<li>${item.item} - $${item.price.toFixed(2)}</li>`
+    ).join('');
+    
+    orderDiv.innerHTML = `
+        <div class="order-header">
+            <input type="checkbox" class="order-checkbox" data-order-key="${orderKey}">
+            <div class="order-info">
+                <h3>Order #${orderKey.slice(-4)}</h3>
+                <span class="table-number">Table #${order.tableId}</span>
+                <span class="order-time">${new Date(order.timestamp).toLocaleString()}</span>
+            </div>
+        </div>
+        <div class="order-items">
+            <ul>${itemsList}</ul>
+        </div>
+        <div class="order-total">
+            <strong>Total: $${order.total.toFixed(2)}</strong>
+        </div>
+        <div class="order-actions">
+            <button onclick="archiveOrder('${orderKey}')" class="archive-btn">Archive Order</button>
+            <button onclick="deleteOrder('${orderKey}')" class="delete-btn">Delete Order</button>
+        </div>
+    `;
+    
+    document.getElementById('orders-container').prepend(orderDiv);
 }
+
+// Select all orders
+function selectAllOrders() {
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+// Archive selected orders
+function archiveSelectedOrders() {
+    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
+    if (selectedOrders.length === 0) {
+        alert('Please select orders to archive');
+        return;
+    }
+
+    if (confirm(`Archive ${selectedOrders.length} selected orders?`)) {
+        selectedOrders.forEach(checkbox => {
+            const orderKey = checkbox.getAttribute('data-order-key');
+            archiveOrder(orderKey, false);
+        });
+        alert('Selected orders archived successfully');
+    }
+}
+
+// Delete selected orders
+function deleteSelectedOrders() {
+    const selectedOrders = document.querySelectorAll('.order-checkbox:checked');
+    if (selectedOrders.length === 0) {
+        alert('Please select orders to delete');
+        return;
+    }
+
+    if (confirm(`Delete ${selectedOrders.length} selected orders? This cannot be undone!`)) {
+        selectedOrders.forEach(checkbox => {
+            const orderKey = checkbox.getAttribute('data-order-key');
+            deleteOrder(orderKey, false);
+        });
+        alert('Selected orders deleted successfully');
+    }
+}
+
+// Archive order
+function archiveOrder(orderKey, showConfirmation = true) {
+    if (showConfirmation && !confirm('Archive this order? It will be moved to historical orders.')) {
+        return;
+    }
+
+    database.ref(`orders/${orderKey}`).once('value')
+        .then((snapshot) => {
+            const order = snapshot.val();
+            if (!order) return;
+
+            // Move to archived orders with date organization
+            return database.ref(`archivedOrders/${order.orderDate}/${orderKey}`).set({
+                ...order,
+                status: 'archived',
+                archivedAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                return database.ref(`orders/${orderKey}`).remove();
+            });
+        })
+        .then(() => {
+            const orderElement = document.getElementById(`order-${orderKey}`);
+            if (orderElement) {
+                orderElement.remove();
+            }
+            if (showConfirmation) {
+                alert('Order archived successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error archiving order:', error);
+            if (showConfirmation) {
+                alert('Error archiving order');
+            }
+        });
+}
+
+// Delete order
+function deleteOrder(orderKey, showConfirmation = true) {
+    if (showConfirmation && !confirm('Are you sure you want to delete this order? This action cannot be undone!')) {
+        return;
+    }
+
+    database.ref(`orders/${orderKey}`).remove()
+        .then(() => {
+            const orderElement = document.getElementById(`order-${orderKey}`);
+            if (orderElement) {
+                orderElement.remove();
+            }
+            if (showConfirmation) {
+                alert('Order deleted successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting order:', error);
+            if (showConfirmation) {
+                alert('Error deleting order');
+            }
+        });
+}
+
+// Load historical orders
+function loadHistoricalOrders() {
+    const historicalContainer = document.getElementById('historical-orders-container');
+    historicalContainer.innerHTML = '';
+    
+    database.ref('archivedOrders').once('value')
+        .then(snapshot => {
+            const orders = [];
+            snapshot.forEach(dateSnapshot => {
+                const date = dateSnapshot.key;
+                dateSnapshot.forEach(orderSnapshot => {
+                    orders.push({
+                        key: orderSnapshot.key,
+                        date: date,
+                        ...orderSnapshot.val()
+                    });
+                });
+            });
+            
+            // Group orders by date
+            const groupedOrders = {};
+            orders.forEach(order => {
+                const date = order.date;
+                if (!groupedOrders[date]) {
+                    groupedOrders[date] = [];
+                }
+                groupedOrders[date].push(order);
+            });
+            
+            // Create folders for each date
+            Object.keys(groupedOrders).sort().reverse().forEach(date => {
+                const dateFolder = document.createElement('div');
+                dateFolder.className = 'date-folder';
+                dateFolder.innerHTML = `
+                    <div class="folder-header" onclick="toggleFolder('${date}')">
+                        <h3>${new Date(date).toLocaleDateString()}</h3>
+                        <span class="folder-count">${groupedOrders[date].length} orders</span>
+                    </div>
+                    <div id="folder-${date}" class="folder-content" style="display: none;">
+                        ${groupedOrders[date].map(order => `
+                            <div class="historical-order">
+                                <h4>Order #${order.key.slice(-4)}</h4>
+                                <p>Table #${order.tableId}</p>
+                                <p>Time: ${new Date(order.timestamp).toLocaleTimeString()}</p>
+                                <ul>
+                                    ${order.items.map(item => `
+                                        <li>${item.item} - $${item.price.toFixed(2)}</li>
+                                    `).join('')}
+                                </ul>
+                                <p><strong>Total: $${order.total.toFixed(2)}</strong></p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                historicalContainer.appendChild(dateFolder);
+            });
+        });
+}
+
+// Toggle historical orders folder
+function toggleFolder(date) {
+    const folder = document.getElementById(`folder-${date}`);
+    folder.style.display = folder.style.display === 'none' ? 'block' : 'none';
+}
+
+// Switch between tabs
+function switchTab(tabName) {
+    const tabs = ['orders', 'historical-orders'];
+    tabs.forEach(tab => {
+        document.getElementById(`${tab}-tab`).style.display = tab === tabName ? 'block' : 'none';
+        document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.toggle('active', tab === tabName);
+    });
+    
+    if (tabName === 'historical-orders') {
+        loadHistoricalOrders();
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    switchTab('orders');
+});

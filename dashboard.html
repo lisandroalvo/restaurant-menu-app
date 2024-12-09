@@ -4,41 +4,278 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurant Orders Dashboard</title>
-    <link rel="stylesheet" href="restaurantstyles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .order-item {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .order-details ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        .order-details li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .status-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .status-btn.preparing {
+            background-color: #ffc107;
+            color: black;
+        }
+        
+        .status-btn.ready {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .status-btn.delivered {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .archive-btn {
+            background-color: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .message-section {
+            margin-top: 15px;
+        }
+        
+        .message-input {
+            width: calc(100% - 120px);
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .send-msg-btn {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .total {
+            font-size: 1.2em;
+            margin: 15px 0;
+        }
+        
+        .last-update {
+            color: #666;
+            font-style: italic;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background-color: #ddd;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background-color: #333;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+        }
+
+        .search-bar input {
+            padding: 8px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .bulk-actions {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        .select-all {
+            margin-right: 10px;
+        }
+
+        .order-checkbox {
+            margin: 10px;
+        }
+
+        .order-date {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .bill-request {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { background-color: #fff3cd; }
+            50% { background-color: #ffecb5; }
+            100% { background-color: #fff3cd; }
+        }
+
+        .bill-upload {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .bill-upload input[type="file"] {
+            margin-bottom: 10px;
+        }
+
+        .bill-upload button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
-
     <header>
         <h1>Restaurant Orders Dashboard</h1>
     </header>
-   
 
-    <section>
-        <h2>Incoming Orders:</h2>
-        <ul id="orders"></ul> <!-- This will display orders in real-time -->
-    </section>
-    
-    <section>
+    <div class="dashboard-nav">
+        <button onclick="switchTab('orders')" class="tab-btn active">Orders</button>
+        <button onclick="switchTab('bill-requests')" class="tab-btn">Bill Requests</button>
+        <button onclick="switchTab('sent-bills')" class="tab-btn">Sent Bills</button>
+    </div>
+
+    <div id="orders-tab" class="tab-content">
+        <h2>Active Orders</h2>
+        <div class="bulk-actions">
+            <label>
+                <input type="checkbox" class="select-all" onchange="toggleAllOrders('active')">
+                Select All
+            </label>
+            <button class="delete-btn" onclick="deleteSelectedOrders('active')">Delete Selected</button>
+        </div>
+        <div id="orders"></div>
+    </div>
+
+    <div id="bill-requests-tab" class="tab-content" style="display: none;">
         <h2>Bill Requests</h2>
-        <ul id="bill-requests"></ul> <!-- This will display the bill requests in real-time -->
-    </section>
-    
+        <div id="bill-requests-container"></div>
+    </div>
+
+    <div id="sent-bills-tab" class="tab-content" style="display: none;">
+        <h2>Sent Bills History</h2>
+        <div id="sent-bills-container"></div>
+    </div>
+
     <section>
         <h2>Bill Details</h2>
-        <div id="bill-details"></div> <!-- This will display the detailed bill -->
+        <div id="bill-details"></div> 
     </section>
     
-
     <footer>
         <p>Restaurant Dashboard &copy; 2024</p>
     </footer>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
-    <!-- Link to external JavaScript file -->
     <script src="dashboard.js"></script>
-
 </body>
 </html>
