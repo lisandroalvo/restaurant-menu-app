@@ -1,42 +1,83 @@
-<div id="menu" class="tab-content active">
-    <div class="menu-section">
-        <h2>Main Dishes</h2>
-        <div class="menu-items">
-            <div class="menu-item">
-                <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500')"></div>
-                <h3>Burger</h3>
-                <p>Delicious beef burger with cheese and fresh vegetables</p>
-                <span class="price">$10.99</span>
-                <button onclick="addToCart({name: 'Burger', price: 10.99})">Add to Cart</button>
-            </div>
-            <div class="menu-item">
-                <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500')"></div>
-                <h3>Pizza</h3>
-                <p>Classic pepperoni pizza with mozzarella cheese</p>
-                <span class="price">$12.99</span>
-                <button onclick="addToCart({name: 'Pizza', price: 12.99})">Add to Cart</button>
-            </div>
-            <div class="menu-item">
-                <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1569058242567-93de6f36f8eb?w=500')"></div>
-                <h3>Pasta</h3>
-                <p>Fresh pasta with homemade tomato sauce</p>
-                <span class="price">$11.99</span>
-                <button onclick="addToCart({name: 'Pasta', price: 11.99})">Add to Cart</button>
-            </div>
-        </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Menu</title>
+    <link rel="stylesheet" href="Style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Restaurant Menu</h1>
+        <div id="table-info" class="table-info">Table: <span id="table-number">Loading...</span></div>
     </div>
-</div>
 
-<div id="orders" class="tab-content">
-    <div id="cart-container">
-        <h2>Your Cart</h2>
-        <div id="cart-items"></div>
-        <div id="cart-total">Total: $<span id="total">0.00</span></div>
-        <div class="cart-buttons">
-            <button onclick="placeOrder()" class="action-button order-btn">Place Order</button>
-            <button onclick="requestBill()" class="action-button request-bill" disabled>Request Bill</button>
+    <!-- Floating Cart Button -->
+    <div class="floating-cart" onclick="openTab('orders')">
+        <i class="fas fa-shopping-cart"></i>
+        <span id="cart-counter">0</span>
+        <span class="cart-total">$<span id="floating-total">0.00</span></span>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-button active" onclick="openTab('menu')">Menu</button>
+        <button class="tab-button" onclick="openTab('orders')">Orders</button>
+    </div>
+
+    <div id="menu" class="tab-content active">
+        <div class="menu-section">
+            <h2>Main Dishes</h2>
+            <div class="menu-items">
+                <div class="menu-item">
+                    <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500')"></div>
+                    <h3>Burger</h3>
+                    <p>Delicious beef burger with cheese and fresh vegetables</p>
+                    <span class="price">$10.99</span>
+                    <button onclick="addToCart({name: 'Burger', price: 10.99})">Add to Cart</button>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500')"></div>
+                    <h3>Pizza</h3>
+                    <p>Classic pepperoni pizza with mozzarella cheese</p>
+                    <span class="price">$12.99</span>
+                    <button onclick="addToCart({name: 'Pizza', price: 12.99})">Add to Cart</button>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1569058242567-93de6f36f8eb?w=500')"></div>
+                    <h3>Pasta</h3>
+                    <p>Fresh pasta with homemade tomato sauce</p>
+                    <span class="price">$11.99</span>
+                    <button onclick="addToCart({name: 'Pasta', price: 11.99})">Add to Cart</button>
+                </div>
+            </div>
         </div>
     </div>
-    <h2>My Orders</h2>
-    <div id="orders-container"></div>
-</div>
+
+    <div id="orders" class="tab-content">
+        <div id="cart-container">
+            <h2>Your Cart</h2>
+            <div id="cart-items"></div>
+            <div id="cart-total">Total: $<span id="total">0.00</span></div>
+            <div class="cart-buttons">
+                <button onclick="placeOrder()" class="action-button order-btn">Place Order</button>
+                <button onclick="requestBill()" class="action-button request-bill" disabled>Request Bill</button>
+            </div>
+        </div>
+        <h2>My Orders</h2>
+        <div id="orders-container"></div>
+    </div>
+
+    <div id="loading-spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- App Logic -->
+    <script src="app.js"></script>
+</body>
+</html>

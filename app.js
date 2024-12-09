@@ -30,12 +30,14 @@ function addToCart(item) {
     updateCart();
     showNotification('Item added to cart');
     updateCartCounter();
+    openTab('orders'); // Automatically switch to orders tab
 }
 
 // Update cart display
 function updateCart() {
     const cartItems = document.getElementById('cart-items');
     const totalElement = document.getElementById('total');
+    const floatingTotalElement = document.getElementById('floating-total');
     
     if (cartItems) {
         cartItems.innerHTML = cart.map(item => `
@@ -48,6 +50,17 @@ function updateCart() {
     
     if (totalElement) {
         totalElement.textContent = total.toFixed(2);
+    }
+
+    if (floatingTotalElement) {
+        floatingTotalElement.textContent = total.toFixed(2);
+    }
+
+    // Update cart counter visibility
+    const counter = document.getElementById('cart-counter');
+    if (counter) {
+        counter.style.display = cart.length > 0 ? 'flex' : 'none';
+        counter.textContent = cart.length;
     }
 }
 
@@ -85,9 +98,7 @@ function placeOrder() {
             updateCart();
             hideSpinner();
             showNotification('Order placed successfully!');
-            openTab('orders');
-            updateCartCounter();
-            loadOrders(); // Reload orders after placing new order
+            loadOrders(); // Reload orders after placing order
         })
         .catch((error) => {
             console.error('Error placing order:', error);
