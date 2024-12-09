@@ -21,10 +21,28 @@ let cart = [];
 let total = 0;
 let tableId = null;
 
+// When page loads or QR is scanned
+window.onload = function() {
+    // Get table ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    tableId = urlParams.get('table');
+    
+    if (!tableId) {
+        alert('No table ID provided! Please scan the QR code again.');
+        return;
+    }
+
+    // Initialize table and display table number
+    document.getElementById('table-number').textContent = tableId;
+    
+    // Clear previous data
+    clearAllData();
+};
+
 // Get table ID from URL
 function getTableId() {
     const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('tableId');
+    const id = urlParams.get('table');
     return id || 'unknown';
 }
 
@@ -87,6 +105,11 @@ function updateCartDisplay() {
 
 // Place order function
 function placeOrder() {
+    if (!tableId) {
+        alert('No table ID found! Please scan the QR code again.');
+        return;
+    }
+
     if (cart.length === 0) {
         alert('Your cart is empty!');
         return;
@@ -106,29 +129,28 @@ function placeOrder() {
         })
     };
 
-    console.log('Sending order:', orderData);
+    console.log('Sending order with table ID:', tableId);
+    console.log('Order data:', orderData);
 
     // Send order to Firebase
     database.ref('orders').push(orderData)
         .then((ref) => {
             console.log('Order sent successfully with key:', ref.key);
             
-            // Save to local storage
-            const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
+            // Save to local storage with table ID
+            const storageKey = `orders_table_${tableId}`;
+            const myOrders = JSON.parse(localStorage.getItem(storageKey) || '[]');
             myOrders.push({
                 key: ref.key,
                 ...orderData
             });
-            localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(myOrders));
+            localStorage.setItem(storageKey, JSON.stringify(myOrders));
             
             // Clear the cart
             clearCart();
             
             // Show success message
             alert('Order placed successfully!');
-            
-            // Switch to orders tab
-            switchTab('orders');
             
             // Load the updated orders
             loadOrders();
@@ -301,9 +323,3 @@ function clearAllData() {
     // Update table number display
     document.getElementById('table-number').textContent = tableId;
 }
-
-// When page loads or QR is scanned
-window.onload = function() {
-    clearAllData();
-    initializeTable();
-};

@@ -14,8 +14,15 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// Audio for notifications
+// Initialize Firebase and Audio
 const audio = new Audio('notification.mp3');
+
+// Play notification sound
+function playNotificationSound() {
+    audio.play().catch(error => {
+        console.error('Error playing notification:', error);
+    });
+}
 
 // Clear all orders function
 function clearAllOrders() {
@@ -32,17 +39,21 @@ function clearAllOrders() {
     }
 }
 
-// Display order with improved status
+// Display order with table information
 function displayOrder(orderId, orderData) {
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
     orderElement.id = `order-${orderId}`;
     
     const statusClass = `status-${orderData.status.toLowerCase()}`;
+    const tableId = orderData.tableId || 'Unknown Table';
     
     orderElement.innerHTML = `
         <div class="order-header">
-            <h3>Table ${orderData.tableId}</h3>
+            <div class="order-info">
+                <h3>Table ${tableId}</h3>
+                <span class="order-time">${orderData.orderDate} ${orderData.orderTime}</span>
+            </div>
             <span class="status-badge ${statusClass}">${orderData.status}</span>
         </div>
         <div class="order-items">
@@ -109,12 +120,14 @@ function initializeOrders() {
     ordersRef.on('child_added', (snapshot) => {
         const orderId = snapshot.key;
         const orderData = snapshot.val();
-        displayOrder(orderId, orderData);
         
-        // Play notification sound for new orders
-        const audio = document.getElementById('notification-sound');
-        if (audio) {
-            audio.play().catch(e => console.log('Error playing sound:', e));
+        console.log('New order received:', orderData);
+        
+        if (orderData.tableId) {
+            displayOrder(orderId, orderData);
+            playNotificationSound();
+        } else {
+            console.error('Order received without table ID:', orderData);
         }
     });
     
