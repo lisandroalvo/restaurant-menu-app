@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restaurant Orders Dashboard</title>
+    <title>Restaurant Dashboard</title>
     <link rel="stylesheet" href="Style.css">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -11,24 +11,28 @@
 </head>
 <body>
     <header>
-        <h1>Restaurant Orders Dashboard</h1>
+        <h1>Restaurant Dashboard</h1>
     </header>
 
-    <div class="dashboard-controls">
-        <button class="clear-orders-btn" onclick="clearAllOrders()">Clear All Orders</button>
-    </div>
-
     <div class="dashboard-tabs">
-        <button class="tab-btn active" onclick="switchTab('orders')">Orders</button>
-        <button class="tab-btn" onclick="switchTab('bills')">Bill Requests</button>
+        <button class="tab-btn active" onclick="switchTab('active-orders')">Active Orders</button>
+        <button class="tab-btn" onclick="switchTab('bill-requests')">Bill Requests</button>
+        <button class="tab-btn" onclick="switchTab('order-history')">Order History</button>
     </div>
 
-    <div id="orders-container" class="tab-content active">
-        <!-- Orders will be displayed here -->
+    <div id="active-orders" class="tab-content active">
+        <h2>Active Orders</h2>
+        <div class="orders-container"></div>
     </div>
 
-    <div id="bill-requests-container" class="tab-content">
-        <!-- Bill requests will be displayed here -->
+    <div id="bill-requests" class="tab-content">
+        <h2>Bill Requests</h2>
+        <div class="bill-requests-container"></div>
+    </div>
+
+    <div id="order-history" class="tab-content">
+        <h2>Order History</h2>
+        <div class="history-container"></div>
     </div>
 
     <audio id="notification-sound" src="notification.mp3" preload="auto"></audio>

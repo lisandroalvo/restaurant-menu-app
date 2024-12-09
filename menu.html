@@ -231,7 +231,7 @@
             </div>
 
             <!-- Cart Section -->
-            <div id="cart-container">
+            <div id="cart-container" style="display: none;">
                 <h2>Your Cart - Table <span id="table-number"></span></h2>
                 <div id="cart-items"></div>
                 <div id="cart-total">Total: $<span id="total">0.00</span></div>
@@ -255,6 +255,23 @@
     
     <!-- Custom JS -->
     <script src="app.js"></script>
+
+    <script>
+        // Get table ID from URL
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableId = urlParams.get('table');
+            
+            if (!tableId) {
+                alert('No table ID found! Please scan the QR code again.');
+                document.getElementById('cart-container').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('table-number').textContent = tableId;
+            document.getElementById('cart-container').style.display = 'block';
+        }
+    </script>
 
     <div class="tab-buttons">
         <button onclick="switchTab('menu')" class="tab-btn active">Menu</button>

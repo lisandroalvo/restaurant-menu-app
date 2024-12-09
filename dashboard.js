@@ -14,47 +14,41 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// Initialize Firebase and Audio
+// Initialize audio
 const audio = new Audio('notification.mp3');
 
-// Play notification sound
-function playNotificationSound() {
+// Switch tabs
+function switchTab(tabId) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab
+    document.getElementById(tabId).classList.add('active');
+    document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+}
+
+// Play notification
+function playNotification() {
     audio.play().catch(error => {
         console.error('Error playing notification:', error);
     });
 }
 
-// Clear all orders function
-function clearAllOrders() {
-    if (confirm('Are you sure you want to clear all orders? This cannot be undone.')) {
-        database.ref('orders').remove()
-            .then(() => {
-                console.log('All orders cleared successfully');
-                document.getElementById('orders-container').innerHTML = '';
-            })
-            .catch((error) => {
-                console.error('Error clearing orders:', error);
-                alert('Error clearing orders. Please try again.');
-            });
-    }
-}
-
-// Display order with table information
-function displayOrder(orderId, orderData) {
+// Display active order
+function displayActiveOrder(orderId, orderData) {
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
     orderElement.id = `order-${orderId}`;
-    
-    const statusClass = `status-${orderData.status.toLowerCase()}`;
-    const tableId = orderData.tableId || 'Unknown Table';
-    
+
     orderElement.innerHTML = `
         <div class="order-header">
-            <div class="order-info">
-                <h3>Table ${tableId}</h3>
-                <span class="order-time">${orderData.orderDate} ${orderData.orderTime}</span>
-            </div>
-            <span class="status-badge ${statusClass}">${orderData.status}</span>
+            <span class="table-number">Table ${orderData.tableId}</span>
+            <span class="status-badge status-${orderData.status}">${orderData.status}</span>
         </div>
         <div class="order-items">
             ${orderData.items.map(item => `
@@ -64,29 +58,53 @@ function displayOrder(orderId, orderData) {
                 </div>
             `).join('')}
         </div>
-        <div class="order-total">
-            <strong>Total: $${orderData.total.toFixed(2)}</strong>
-        </div>
+        <div class="order-total">Total: $${orderData.total.toFixed(2)}</div>
         <div class="order-actions">
-            <button onclick="updateStatus('${orderId}', 'preparing')">Preparing</button>
-            <button onclick="updateStatus('${orderId}', 'ready')">Ready</button>
-            <button onclick="updateStatus('${orderId}', 'delivered')">Delivered</button>
-            <button onclick="deleteOrder('${orderId}')" class="delete-btn">Delete</button>
+            <button onclick="updateOrderStatus('${orderId}', 'preparing')">Preparing</button>
+            <button onclick="updateOrderStatus('${orderId}', 'ready')">Ready</button>
+            <button onclick="updateOrderStatus('${orderId}', 'delivered')">Delivered</button>
         </div>
     `;
-    
-    document.getElementById('orders-container').appendChild(orderElement);
+
+    document.querySelector('#active-orders .orders-container').appendChild(orderElement);
+}
+
+// Display bill request
+function displayBillRequest(requestId, requestData) {
+    const billElement = document.createElement('div');
+    billElement.className = 'bill-request-card';
+    billElement.id = `bill-${requestId}`;
+
+    billElement.innerHTML = `
+        <div class="bill-header">
+            <span class="table-number">Table ${requestData.tableId}</span>
+            <span class="timestamp">${new Date(requestData.timestamp).toLocaleString()}</span>
+        </div>
+        <div class="bill-total">Total: $${requestData.total.toFixed(2)}</div>
+        <div class="bill-actions">
+            <button onclick="processBill('${requestId}')">Process Bill</button>
+            <button onclick="moveToHistory('${requestId}')">Complete Order</button>
+        </div>
+    `;
+
+    document.querySelector('#bill-requests .bill-requests-container').appendChild(billElement);
 }
 
 // Update order status
-function updateStatus(orderId, newStatus) {
+function updateOrderStatus(orderId, newStatus) {
     database.ref(`orders/${orderId}`).update({
-        status: newStatus
+        status: newStatus,
+        lastUpdated: Date.now()
     }).then(() => {
-        const statusElement = document.querySelector(`#order-${orderId} .status-badge`);
-        if (statusElement) {
-            statusElement.className = `status-badge status-${newStatus.toLowerCase()}`;
-            statusElement.textContent = newStatus;
+        const statusBadge = document.querySelector(`#order-${orderId} .status-badge`);
+        if (statusBadge) {
+            statusBadge.className = `status-badge status-${newStatus}`;
+            statusBadge.textContent = newStatus;
+        }
+
+        if (newStatus === 'delivered') {
+            // Move to history after delivery
+            moveToHistory(orderId);
         }
     }).catch(error => {
         console.error('Error updating status:', error);
@@ -94,139 +112,15 @@ function updateStatus(orderId, newStatus) {
     });
 }
 
-// Delete single order
-function deleteOrder(orderId) {
-    if (confirm('Are you sure you want to delete this order?')) {
-        database.ref(`orders/${orderId}`).remove()
-            .then(() => {
-                const orderElement = document.getElementById(`order-${orderId}`);
-                if (orderElement) {
-                    orderElement.remove();
-                }
-            })
-            .catch(error => {
-                console.error('Error deleting order:', error);
-                alert('Error deleting order');
-            });
-    }
-}
-
-// Initialize Firebase listeners
-function initializeOrders() {
-    const ordersRef = database.ref('orders');
-    const billRequestsRef = database.ref('billRequests');
-    
-    // Listen for new orders
-    ordersRef.on('child_added', (snapshot) => {
-        const orderId = snapshot.key;
-        const orderData = snapshot.val();
-        
-        console.log('New order received:', orderData);
-        
-        if (orderData.tableId) {
-            displayOrder(orderId, orderData);
-            playNotificationSound();
-        } else {
-            console.error('Order received without table ID:', orderData);
-        }
-    });
-    
-    // Listen for order updates
-    ordersRef.on('child_changed', (snapshot) => {
-        const orderId = snapshot.key;
-        const orderData = snapshot.val();
-        
-        // Remove old order display and add updated one
-        const oldOrder = document.getElementById(`order-${orderId}`);
-        if (oldOrder) {
-            oldOrder.remove();
-        }
-        displayOrder(orderId, orderData);
-    });
-    
-    // Listen for order removals
-    ordersRef.on('child_removed', (snapshot) => {
-        const orderId = snapshot.key;
-        const orderElement = document.getElementById(`order-${orderId}`);
-        if (orderElement) {
-            orderElement.remove();
-        }
-    });
-    
-    // Listen for bill requests
-    billRequestsRef.on('child_added', (snapshot) => {
-        const billRequest = snapshot.val();
-        const requestId = snapshot.key;
-        
-        // Get all orders for this table
-        database.ref('orders')
-            .orderByChild('tableId')
-            .equalTo(billRequest.tableId)
-            .once('value')
-            .then((ordersSnapshot) => {
-                let totalAmount = 0;
-                const orders = [];
-                
-                ordersSnapshot.forEach((orderSnapshot) => {
-                    const order = orderSnapshot.val();
-                    totalAmount += order.total;
-                    orders.push(order);
-                });
-
-                displayBillRequest(requestId, billRequest, orders, totalAmount);
-                playNotificationSound();
-            });
-    });
-}
-
-// Display bill request
-function displayBillRequest(requestId, request, orders, totalAmount) {
-    const billElement = document.createElement('div');
-    billElement.className = 'bill-request-card';
-    billElement.id = `bill-${requestId}`;
-    
-    billElement.innerHTML = `
-        <div class="bill-header">
-            <h3>Bill Request - Table ${request.tableId}</h3>
-            <span class="timestamp">${request.requestDate} ${request.requestTime}</span>
-        </div>
-        <div class="bill-details">
-            <h4>Orders:</h4>
-            ${orders.map(order => `
-                <div class="bill-order">
-                    ${order.items.map(item => `
-                        <div class="bill-item">
-                            <span>${item.quantity}x ${item.name}</span>
-                            <span>$${item.price.toFixed(2)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `).join('')}
-            <div class="bill-total">
-                <strong>Total Amount: $${totalAmount.toFixed(2)}</strong>
-            </div>
-        </div>
-        <div class="bill-actions">
-            <button onclick="processBill('${requestId}', ${totalAmount})" class="process-bill-btn">Process Bill</button>
-            <button onclick="deleteBillRequest('${requestId}')" class="delete-btn">Delete Request</button>
-        </div>
-    `;
-    
-    document.getElementById('bill-requests-container').appendChild(billElement);
-}
-
 // Process bill
-function processBill(requestId, totalAmount) {
-    if (confirm(`Process bill for $${totalAmount.toFixed(2)}?`)) {
+function processBill(requestId) {
+    if (confirm('Process this bill?')) {
         database.ref(`billRequests/${requestId}`).update({
             status: 'processed',
             processedAt: Date.now()
         }).then(() => {
-            const billElement = document.getElementById(`bill-${requestId}`);
-            if (billElement) {
-                billElement.remove();
-            }
-            alert('Bill processed successfully!');
+            // Move to history
+            moveToHistory(requestId);
         }).catch(error => {
             console.error('Error processing bill:', error);
             alert('Error processing bill');
@@ -234,32 +128,73 @@ function processBill(requestId, totalAmount) {
     }
 }
 
-// Delete bill request
-function deleteBillRequest(requestId) {
-    if (confirm('Delete this bill request?')) {
-        database.ref(`billRequests/${requestId}`).remove()
-            .then(() => {
-                const billElement = document.getElementById(`bill-${requestId}`);
-                if (billElement) {
-                    billElement.remove();
-                }
-            })
-            .catch(error => {
-                console.error('Error deleting bill request:', error);
-                alert('Error deleting bill request');
-            });
-    }
+// Move to history
+function moveToHistory(id) {
+    // Get the order or bill request
+    database.ref(`orders/${id}`).once('value')
+        .then(snapshot => {
+            const data = snapshot.val();
+            if (data) {
+                // Save to history
+                return database.ref(`orderHistory/${id}`).set({
+                    ...data,
+                    completedAt: Date.now()
+                }).then(() => {
+                    // Remove from active orders
+                    return database.ref(`orders/${id}`).remove();
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error moving to history:', error);
+            alert('Error completing order');
+        });
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    // Load any existing orders
-    database.ref('orders').once('value', function(snapshot) {
-        snapshot.forEach(function(childSnapshot) {
-            const orderId = childSnapshot.key;
-            const orderData = childSnapshot.val();
-            displayOrder(orderId, orderData);
-        });
+// Initialize listeners
+function initializeListeners() {
+    // Listen for new orders
+    database.ref('orders').on('child_added', snapshot => {
+        const orderId = snapshot.key;
+        const orderData = snapshot.val();
+        if (orderData.status !== 'completed') {
+            displayActiveOrder(orderId, orderData);
+            playNotification();
+        }
     });
-    initializeOrders();
+
+    // Listen for order updates
+    database.ref('orders').on('child_changed', snapshot => {
+        const orderId = snapshot.key;
+        const orderData = snapshot.val();
+        const orderElement = document.getElementById(`order-${orderId}`);
+        if (orderElement) {
+            orderElement.remove();
+            if (orderData.status !== 'completed') {
+                displayActiveOrder(orderId, orderData);
+            }
+        }
+    });
+
+    // Listen for bill requests
+    database.ref('billRequests').on('child_added', snapshot => {
+        const requestId = snapshot.key;
+        const requestData = snapshot.val();
+        if (requestData.status === 'pending') {
+            displayBillRequest(requestId, requestData);
+            playNotification();
+        }
+    });
+
+    // Listen for history updates
+    database.ref('orderHistory').on('child_added', snapshot => {
+        const historyId = snapshot.key;
+        const historyData = snapshot.val();
+        displayHistoryItem(historyId, historyData);
+    });
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', () => {
+    initializeListeners();
 });
