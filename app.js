@@ -188,3 +188,98 @@ window.onload = function() {
     // Initialize table and display table number
     document.getElementById('table-number').textContent = id;
 }
+
+
+// Cart management
+let cart = [];
+let total = 0;
+
+function updateFloatingCart() {
+    const cartTotalFloat = document.getElementById('cart-total-float');
+    cartTotalFloat.textContent = `$${total.toFixed(2)}`;
+}
+
+function addToCart(item) {
+    cart.push(item);
+    total += item.price;
+    
+    // Update floating cart
+    updateFloatingCart();
+    
+    // Update cart in orders tab
+    updateCartDisplay();
+}
+
+function updateCartDisplay() {
+    const cartItems = document.getElementById('cart-items');
+    const totalElement = document.getElementById('total');
+    
+    if (!cartItems || !totalElement) return;
+    
+    cartItems.innerHTML = '';
+    cart.forEach((item, index) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'cart-item';
+        itemElement.innerHTML = `
+            <span>${item.name}</span>
+            <span>$${item.price.toFixed(2)}</span>
+            <button onclick="removeFromCart(${index})" class="remove-btn">×</button>
+        `;
+        cartItems.appendChild(itemElement);
+    });
+    
+    totalElement.textContent = total.toFixed(2);
+}
+
+function removeFromCart(index) {
+    total -= cart[index].price;
+    cart.splice(index, 1);
+    updateFloatingCart();
+    updateCartDisplay();
+}
+
+function clearCart() {
+    cart = [];
+    total = 0;
+    updateFloatingCart();
+    updateCartDisplay();
+}
+
+// Modify your existing placeOrder function to include:
+function placeOrder() {
+    if (cart.length === 0) {
+        alert('Your cart is empty!');
+        return;
+    }
+
+    const tableId = getTableId();
+    if (!tableId) {
+        alert('Error: No table ID found');
+        return;
+    }
+
+    const orderData = {
+        tableId: tableId,
+        items: cart,
+        total: total,
+        status: 'pending',
+        orderTime: new Date().toLocaleString()
+    };
+
+    database.ref('orders').push(orderData)
+        .then((ref) => {
+            console.log('Order sent successfully:', ref.key);
+            clearCart();
+            alert('Order placed successfully! Check the Orders tab to see your order status.');
+            openTab('orders');
+        })
+        .catch((error) => {
+            console.error('Error placing order:', error);
+            alert('Error placing order. Please try again.');
+        });
+}
+
+// Add this to ensure the floating cart is updated when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    updateFloatingCart();
+});
