@@ -22,30 +22,57 @@ function getTableId() {
     return window.tableId || null;
 }
 
-// Add to cart function
+// Cart management
+function updateFloatingCart() {
+    const cartCount = document.getElementById('cart-count');
+    const cartTotalFloat = document.getElementById('cart-total-float');
+    
+    cartCount.textContent = cart.length;
+    cartTotalFloat.textContent = `$${total.toFixed(2)}`;
+}
+
 function addToCart(item) {
     cart.push(item);
     total += item.price;
-    updateCart();
+    
+    // Update floating cart
+    updateFloatingCart();
+    
+    // Update cart in orders tab
+    updateCartDisplay();
 }
 
-// Update cart display
-function updateCart() {
+function updateCartDisplay() {
     const cartItems = document.getElementById('cart-items');
     const totalElement = document.getElementById('total');
     
-    if (cartItems) {
-        cartItems.innerHTML = cart.map(item => `
-            <div class="cart-item">
-                <span>${item.name}</span>
-                <span>$${item.price.toFixed(2)}</span>
-            </div>
-        `).join('');
-    }
+    cartItems.innerHTML = '';
+    cart.forEach((item, index) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'cart-item';
+        itemElement.innerHTML = `
+            <span>${item.name}</span>
+            <span>$${item.price.toFixed(2)}</span>
+            <button onclick="removeFromCart(${index})" class="remove-btn">Remove</button>
+        `;
+        cartItems.appendChild(itemElement);
+    });
     
-    if (totalElement) {
-        totalElement.textContent = total.toFixed(2);
-    }
+    totalElement.textContent = total.toFixed(2);
+}
+
+function removeFromCart(index) {
+    total -= cart[index].price;
+    cart.splice(index, 1);
+    updateFloatingCart();
+    updateCartDisplay();
+}
+
+function clearCart() {
+    cart = [];
+    total = 0;
+    updateFloatingCart();
+    updateCartDisplay();
 }
 
 // Place order function
@@ -73,9 +100,7 @@ function placeOrder() {
     database.ref('orders').push(orderData)
         .then((ref) => {
             console.log('Order sent successfully:', ref.key);
-            cart = [];
-            total = 0;
-            updateCart();
+            clearCart();
             alert('Order placed successfully! Check the Orders tab to see your order status.');
             // Switch to orders tab
             openTab('orders');

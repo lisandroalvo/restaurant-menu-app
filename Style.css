@@ -870,3 +870,45 @@ audio {
     display: grid;
     gap: 20px;
 }
+
+/* Floating Cart Styles */
+.floating-cart {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px;
+    border-radius: 50px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 1000;
+    transition: transform 0.2s;
+}
+
+.floating-cart:hover {
+    transform: scale(1.05);
+}
+
+.floating-cart i {
+    font-size: 24px;
+}
+
+.cart-count {
+    background-color: #ff4444;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 50%;
+    font-size: 12px;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+}
+
+.cart-total {
+    font-size: 14px;
+    font-weight: 600;
+}
