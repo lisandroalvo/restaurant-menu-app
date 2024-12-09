@@ -91,30 +91,35 @@ function placeOrder() {
         return;
     }
 
-    const now = new Date();
     const orderData = {
         tableId: tableId,
         items: cart,
         total: total,
         status: 'pending',
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        orderDate: now.toISOString().split('T')[0],
-        orderTime: now.toLocaleTimeString(),
-        billRequested: false
+        timestamp: Date.now(),
+        orderDate: new Date().toISOString().split('T')[0],
+        orderTime: new Date().toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        })
     };
 
     console.log('Sending order:', orderData);
 
-    database.ref('orders').push(orderData)
-        .then((ref) => {
-            console.log('Order sent successfully with key:', ref.key);
+    // Create a new reference for the order
+    const newOrderRef = database.ref('orders').push();
+
+    // Set the order data
+    newOrderRef.set(orderData)
+        .then(() => {
+            console.log('Order sent successfully with key:', newOrderRef.key);
             
             // Save to local storage with table ID
             const myOrders = JSON.parse(localStorage.getItem(`orders_table_${tableId}`) || '[]');
             myOrders.push({
-                key: ref.key,
-                ...orderData,
-                timestamp: Date.now()
+                key: newOrderRef.key,
+                ...orderData
             });
             localStorage.setItem(`orders_table_${tableId}`, JSON.stringify(myOrders));
             

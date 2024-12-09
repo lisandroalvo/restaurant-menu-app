@@ -45,6 +45,8 @@ function displayOrder(order, orderKey) {
     const itemsList = order.items.map(item => 
         `<li>${item.item} - $${item.price.toFixed(2)}</li>`
     ).join('');
+
+    const orderDate = new Date(order.timestamp);
     
     orderDiv.innerHTML = `
         <div class="order-header">
@@ -52,7 +54,8 @@ function displayOrder(order, orderKey) {
             <div class="order-info">
                 <h3>Order #${orderKey.slice(-4)}</h3>
                 <span class="table-number">Table #${order.tableId}</span>
-                <span class="order-time">${new Date(order.timestamp).toLocaleString()}</span>
+                <span class="order-time">${order.orderDate} ${order.orderTime}</span>
+                <span class="order-status">Status: ${order.status}</span>
             </div>
         </div>
         <div class="order-items">
@@ -62,12 +65,35 @@ function displayOrder(order, orderKey) {
             <strong>Total: $${order.total.toFixed(2)}</strong>
         </div>
         <div class="order-actions">
+            <select onchange="updateOrderStatus('${orderKey}', this.value)" class="status-select">
+                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>Ready</option>
+                <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+            </select>
             <button onclick="archiveOrder('${orderKey}')" class="archive-btn">Archive Order</button>
             <button onclick="deleteOrder('${orderKey}')" class="delete-btn">Delete Order</button>
         </div>
     `;
     
-    document.getElementById('orders-container').prepend(orderDiv);
+    const ordersContainer = document.getElementById('orders-container');
+    if (ordersContainer.firstChild) {
+        ordersContainer.insertBefore(orderDiv, ordersContainer.firstChild);
+    } else {
+        ordersContainer.appendChild(orderDiv);
+    }
+}
+
+// Update order status
+function updateOrderStatus(orderKey, newStatus) {
+    database.ref(`orders/${orderKey}`).update({
+        status: newStatus
+    }).then(() => {
+        console.log(`Order ${orderKey} status updated to ${newStatus}`);
+    }).catch(error => {
+        console.error('Error updating order status:', error);
+        alert('Error updating order status');
+    });
 }
 
 // Select all orders
