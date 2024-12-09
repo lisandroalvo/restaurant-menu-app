@@ -6,7 +6,9 @@
     <title>Restaurant Menu</title>
     <link rel="stylesheet" href="Style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
     <div class="header">
@@ -14,16 +16,9 @@
         <div id="table-info" class="table-info">Table: <span id="table-number">Loading...</span></div>
     </div>
 
-    <!-- Floating Cart Button -->
-    <div class="floating-cart" onclick="openTab('orders')">
-        <i class="fas fa-shopping-cart"></i>
-        <span id="cart-counter">0</span>
-        <span class="cart-total">$<span id="floating-total">0.00</span></span>
-    </div>
-
     <div class="tabs">
         <button class="tab-button active" onclick="openTab('menu')">Menu</button>
-        <button class="tab-button" onclick="openTab('orders')">Orders</button>
+        <button class="tab-button" onclick="openTab('orders')">My Orders</button>
     </div>
 
     <div id="menu" class="tab-content active">
@@ -53,31 +48,113 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="orders" class="tab-content">
         <div id="cart-container">
             <h2>Your Cart</h2>
             <div id="cart-items"></div>
             <div id="cart-total">Total: $<span id="total">0.00</span></div>
             <div class="cart-buttons">
                 <button onclick="placeOrder()" class="action-button order-btn">Place Order</button>
-                <button onclick="requestBill()" class="action-button request-bill" disabled>Request Bill</button>
+                <button onclick="requestBill()" class="action-button request-bill">Request Bill</button>
             </div>
         </div>
+    </div>
+
+    <div id="orders" class="tab-content">
         <h2>My Orders</h2>
         <div id="orders-container"></div>
     </div>
 
-    <div id="loading-spinner">
-        <div class="spinner"></div>
-    </div>
-
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    
-    <!-- App Logic -->
     <script src="app.js"></script>
+
+    <script>
+        // Table ID handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const table = params.get('table');
+            
+            if (table) {
+                document.getElementById('table-number').textContent = table;
+                window.tableId = table;
+                console.log('Table ID set:', table);
+                // Load orders for this table
+                loadOrders();
+            } else {
+                console.error('No table ID in URL');
+                alert('Error: No table ID found. Please scan the QR code again.');
+                document.getElementById('cart-container').style.display = 'none';
+            }
+        });
+
+        // Tab switching
+        function openTab(tabName) {
+            // Hide all tab content
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let content of tabContents) {
+                content.classList.remove('active');
+            }
+
+            // Remove active class from all buttons
+            const tabButtons = document.getElementsByClassName('tab-button');
+            for (let button of tabButtons) {
+                button.classList.remove('active');
+            }
+
+            // Show the selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to the clicked button
+            event.currentTarget.classList.add('active');
+
+            // Reload orders when switching to orders tab
+            if (tabName === 'orders') {
+                loadOrders();
+            }
+        }
+
+        // Load orders function
+        function loadOrders() {
+            const ordersContainer = document.getElementById('orders-container');
+            if (!window.tableId) return;
+
+            // Get orders from Firebase
+            firebase.database().ref('orders')
+                .orderByChild('tableId')
+                .equalTo(window.tableId)
+                .on('value', function(snapshot) {
+                    ordersContainer.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
+                        return;
+                    }
+
+                    snapshot.forEach(function(childSnapshot) {
+                        const order = childSnapshot.val();
+                        const orderElement = document.createElement('div');
+                        orderElement.className = 'order-card';
+                        
+                        const items = order.items.map(item => 
+                            `<div class="order-item">
+                                <span>${item.name}</span>
+                                <span>$${item.price.toFixed(2)}</span>
+                            </div>`
+                        ).join('');
+
+                        orderElement.innerHTML = `
+                            <div class="order-header">
+                                <span class="order-id">Order #${childSnapshot.key.slice(-4)}</span>
+                                <span class="order-status ${order.status}">${order.status}</span>
+                            </div>
+                            <div class="order-items">${items}</div>
+                            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                            <div class="order-time">Ordered at: ${order.orderTime}</div>
+                        `;
+                        
+                        ordersContainer.appendChild(orderElement);
+                    });
+                });
+        }
+    </script>
 </body>
 </html>
