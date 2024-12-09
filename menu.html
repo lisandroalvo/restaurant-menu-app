@@ -1,34 +1,15 @@
 <!-- Cart Sidebar -->
-<div class="cart-sidebar" id="cart-sidebar">
+<div class="cart-sidebar">
     <div class="cart-header">
         <h2>Your Cart</h2>
         <button class="close-cart" onclick="toggleCart()">&times;</button>
     </div>
-    
-    <div class="cart-content">
-        <!-- Cart Items Section -->
-        <div class="cart-items-section">
-            <h3 class="section-title">Cart Items</h3>
-            <div id="cart-items"></div>
-        </div>
-
-        <!-- Active Orders Section -->
-        <div class="active-orders-section">
-            <h3 class="section-title">Active Orders</h3>
-            <div id="active-orders"></div>
-        </div>
+    <div id="cart-items"></div>
+    <div class="cart-total">
+        Total: $<span id="total">0.00</span>
     </div>
-
-    <div class="cart-footer">
-        <div class="cart-total">
-            <span>Total:</span>
-            <span>$<span id="total">0.00</span></span>
-        </div>
-        <div class="cart-buttons">
-            <button class="action-button order-btn" onclick="placeOrder()">Place Order</button>
-            <button class="action-button request-bill" onclick="requestBill()">Request Bill</button>
-        </div>
-    </div>
+    <button class="action-button order-btn" onclick="placeOrder()">Place Order</button>
+    <button class="action-button request-bill" onclick="requestBill()">Request Bill</button>
 </div>
 
 <!-- Floating Cart Button -->

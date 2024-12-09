@@ -32,11 +32,8 @@ function addToCart(item) {
     updateCartCounter();
     
     // Show cart sidebar when adding items
-    const cartSidebar = document.getElementById('cart-sidebar');
-    if (cartSidebar) {
-        cartSidebar.classList.add('active');
-        updateActiveOrders();
-    }
+    const cartSidebar = document.querySelector('.cart-sidebar');
+    cartSidebar.classList.add('active');
 }
 
 // Update cart display
@@ -63,7 +60,11 @@ function updateCart() {
     }
 
     // Update cart counter
-    updateCartCounter();
+    const counter = document.getElementById('cart-counter');
+    if (counter) {
+        counter.style.display = cart.length > 0 ? 'flex' : 'none';
+        counter.textContent = cart.length;
+    }
 }
 
 // Update cart counter
@@ -177,13 +178,8 @@ function updateActiveOrders() {
 
 // Toggle cart sidebar
 function toggleCart() {
-    const cartSidebar = document.getElementById('cart-sidebar');
-    if (cartSidebar) {
-        cartSidebar.classList.toggle('active');
-        if (cartSidebar.classList.contains('active')) {
-            updateActiveOrders();
-        }
-    }
+    const cartSidebar = document.querySelector('.cart-sidebar');
+    cartSidebar.classList.toggle('active');
 }
 
 // Function to create order card
