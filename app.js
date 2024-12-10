@@ -13,16 +13,65 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// Global variables
+// Cart management
 let cart = [];
 let total = 0;
 
-// Get table ID
-function getTableId() {
-    return window.tableId || null;
+// DOM Elements
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize table ID
+    initializeTableId();
+    
+    // Add event listeners
+    initializeEventListeners();
+    
+    // Initialize floating cart
+    updateFloatingCart();
+});
+
+function initializeTableId() {
+    const params = new URLSearchParams(window.location.search);
+    const tableId = params.get('table');
+    
+    if (tableId) {
+        window.tableId = tableId;
+        document.getElementById('table-number').textContent = tableId;
+        loadOrders();
+    } else {
+        console.error('No table ID in URL');
+        alert('Error: No table ID found. Please scan the QR code again.');
+    }
 }
 
-// Cart management
+function initializeEventListeners() {
+    // Tab switching
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => openTab(button.getAttribute('data-tab')));
+    });
+
+    // Add to cart buttons
+    const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
+    addToCartButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const menuItem = button.closest('.menu-item');
+            const name = menuItem.getAttribute('data-name');
+            const price = parseFloat(menuItem.getAttribute('data-price'));
+            addToCart({name, price});
+        });
+    });
+
+    // Floating cart
+    const floatingCart = document.getElementById('floating-cart');
+    floatingCart.addEventListener('click', () => openTab('orders'));
+
+    // Place order button
+    const placeOrderBtn = document.getElementById('place-order-btn');
+    if (placeOrderBtn) {
+        placeOrderBtn.addEventListener('click', placeOrder);
+    }
+}
+
 function updateFloatingCart() {
     const cartTotalFloat = document.getElementById('cart-total-float');
     if (cartTotalFloat) {
@@ -34,10 +83,8 @@ function addToCart(item) {
     cart.push(item);
     total += item.price;
     
-    // Update floating cart
+    // Update displays
     updateFloatingCart();
-    
-    // Update cart in orders tab
     updateCartDisplay();
     
     // Show feedback
@@ -57,7 +104,9 @@ function updateCartDisplay() {
         itemElement.innerHTML = `
             <span>${item.name}</span>
             <span>$${item.price.toFixed(2)}</span>
-            <button onclick="removeFromCart(${index})" class="remove-btn">×</button>
+            <button onclick="removeFromCart(${index})" class="remove-btn">
+                <i class="fas fa-times"></i>
+            </button>
         `;
         cartItems.appendChild(itemElement);
     });
@@ -80,67 +129,14 @@ function clearCart() {
     updateCartDisplay();
 }
 
-// Place order function
-function placeOrder() {
-    if (cart.length === 0) {
-        alert('Your cart is empty!');
-        return;
-    }
-
-    const tableId = getTableId();
-    if (!tableId) {
-        alert('Error: No table ID found');
-        return;
-    }
-
-    const orderData = {
-        tableId: tableId,
-        items: cart,
-        total: total,
-        status: 'pending',
-        orderTime: new Date().toLocaleString()
-    };
-
-    // Show loading state
-    const orderBtn = document.querySelector('.order-btn');
-    if (orderBtn) {
-        orderBtn.disabled = true;
-        orderBtn.textContent = 'Placing Order...';
-    }
-
-    database.ref('orders').push(orderData)
-        .then((ref) => {
-            console.log('Order sent successfully:', ref.key);
-            clearCart();
-            alert('Order placed successfully! Check the Orders tab to see your order status.');
-            openTab('orders');
-        })
-        .catch((error) => {
-            console.error('Error placing order:', error);
-            alert('Error placing order. Please try again.');
-        })
-        .finally(() => {
-            // Reset button state
-            if (orderBtn) {
-                orderBtn.disabled = false;
-                orderBtn.textContent = 'Place Order';
-            }
-        });
-}
-
-// Tab switching function
 function openTab(tabName) {
     // Hide all tab content
-    const tabContents = document.getElementsByClassName('tab-content');
-    for (let content of tabContents) {
-        content.classList.remove('active');
-    }
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
 
     // Remove active class from all buttons
-    const tabButtons = document.getElementsByClassName('tab-button');
-    for (let button of tabButtons) {
-        button.classList.remove('active');
-    }
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => button.classList.remove('active'));
 
     // Show the selected tab content
     const selectedTab = document.getElementById(tabName);
@@ -149,10 +145,7 @@ function openTab(tabName) {
     }
     
     // Add active class to the clicked button
-    const buttons = Array.from(tabButtons);
-    const activeButton = buttons.find(button => 
-        button.textContent.toLowerCase().includes(tabName)
-    );
+    const activeButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
     if (activeButton) {
         activeButton.classList.add('active');
     }
@@ -162,6 +155,92 @@ function openTab(tabName) {
         updateCartDisplay();
         loadOrders();
     }
+}
+
+function placeOrder() {
+    if (cart.length === 0) {
+        alert('Your cart is empty!');
+        return;
+    }
+
+    if (!window.tableId) {
+        alert('Error: No table ID found');
+        return;
+    }
+
+    // Show loading state
+    const orderBtn = document.getElementById('place-order-btn');
+    if (orderBtn) {
+        orderBtn.disabled = true;
+        orderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Placing Order...';
+    }
+
+    const orderData = {
+        tableId: window.tableId,
+        items: cart,
+        total: total,
+        status: 'pending',
+        orderTime: new Date().toLocaleString()
+    };
+
+    database.ref('orders').push(orderData)
+        .then((ref) => {
+            console.log('Order sent successfully:', ref.key);
+            clearCart();
+            alert('Order placed successfully! Check the Orders tab to see your order status.');
+        })
+        .catch((error) => {
+            console.error('Error placing order:', error);
+            alert('Error placing order. Please try again.');
+        })
+        .finally(() => {
+            if (orderBtn) {
+                orderBtn.disabled = false;
+                orderBtn.textContent = 'Place Order';
+            }
+        });
+}
+
+function loadOrders() {
+    const ordersContainer = document.getElementById('orders-container');
+    if (!window.tableId || !ordersContainer) return;
+
+    ordersContainer.innerHTML = '<h3>Previous Orders</h3>';
+    
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(window.tableId)
+        .on('value', function(snapshot) {
+            if (!snapshot.exists()) {
+                ordersContainer.innerHTML += '<div class="no-orders">No previous orders</div>';
+                return;
+            }
+
+            snapshot.forEach(function(childSnapshot) {
+                const order = childSnapshot.val();
+                const orderElement = document.createElement('div');
+                orderElement.className = 'order-card';
+                
+                const items = order.items.map(item => `
+                    <div class="order-item">
+                        <span>${item.name}</span>
+                        <span>$${item.price.toFixed(2)}</span>
+                    </div>
+                `).join('');
+
+                orderElement.innerHTML = `
+                    <div class="order-header">
+                        <span class="order-id">Order #${childSnapshot.key.slice(-4)}</span>
+                        <span class="order-status ${order.status}">${order.status}</span>
+                    </div>
+                    <div class="order-items">${items}</div>
+                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                    <div class="order-time">Ordered at: ${order.orderTime}</div>
+                `;
+                
+                ordersContainer.appendChild(orderElement);
+            });
+        });
 }
 
 // Helper functions for spinner
@@ -189,12 +268,6 @@ window.onload = function() {
     // Initialize table and display table number
     document.getElementById('table-number').textContent = id;
 }
-
-// Initialize cart on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateFloatingCart();
-    updateCartDisplay();
-});
 
 // Request bill function
 function requestBill() {

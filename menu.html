@@ -66,7 +66,6 @@
             <div id="cart-total">Total: $<span id="total">0.00</span></div>
             <div class="cart-buttons">
                 <button id="place-order-btn" class="action-button order-btn">Place Order</button>
-                <button id="request-bill-btn" class="action-button request-bill">Request Bill</button>
             </div>
         </div>
 
@@ -201,11 +200,6 @@
             placeOrder();
         });
 
-        // Request bill function
-        document.getElementById('request-bill-btn').addEventListener('click', function() {
-            requestBill();
-        });
-
         // Place order function
         function placeOrder() {
             // Get cart items
@@ -233,38 +227,6 @@
 
             // Add order to Firebase
             firebase.database().ref('orders').push(order);
-
-            // Clear cart
-            cartItems.innerHTML = '';
-            document.getElementById('total').textContent = '0.00';
-            document.getElementById('cart-total-float').textContent = '$0.00';
-        }
-
-        // Request bill function
-        function requestBill() {
-            // Get cart items
-            const cartItems = document.getElementById('cart-items');
-            const items = [];
-            const cartItemElements = cartItems.children;
-            for (let i = 0; i < cartItemElements.length; i++) {
-                const cartItem = cartItemElements[i];
-                const name = cartItem.children[0].textContent;
-                const price = parseFloat(cartItem.children[1].textContent.slice(1));
-                items.push({name, price});
-            }
-
-            // Get total
-            const total = parseFloat(document.getElementById('total').textContent);
-
-            // Create bill object
-            const bill = {
-                tableId: window.tableId,
-                items,
-                total
-            };
-
-            // Add bill to Firebase
-            firebase.database().ref('bills').push(bill);
 
             // Clear cart
             cartItems.innerHTML = '';
