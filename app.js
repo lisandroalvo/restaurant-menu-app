@@ -24,11 +24,10 @@ function getTableId() {
 
 // Cart management
 function updateFloatingCart() {
-    const cartCount = document.getElementById('cart-count');
     const cartTotalFloat = document.getElementById('cart-total-float');
-    
-    cartCount.textContent = cart.length;
-    cartTotalFloat.textContent = `$${total.toFixed(2)}`;
+    if (cartTotalFloat) {
+        cartTotalFloat.textContent = `$${total.toFixed(2)}`;
+    }
 }
 
 function addToCart(item) {
@@ -40,11 +39,16 @@ function addToCart(item) {
     
     // Update cart in orders tab
     updateCartDisplay();
+    
+    // Show feedback
+    alert(`${item.name} added to cart!`);
 }
 
 function updateCartDisplay() {
     const cartItems = document.getElementById('cart-items');
     const totalElement = document.getElementById('total');
+    
+    if (!cartItems || !totalElement) return;
     
     cartItems.innerHTML = '';
     cart.forEach((item, index) => {
@@ -53,7 +57,7 @@ function updateCartDisplay() {
         itemElement.innerHTML = `
             <span>${item.name}</span>
             <span>$${item.price.toFixed(2)}</span>
-            <button onclick="removeFromCart(${index})" class="remove-btn">Remove</button>
+            <button onclick="removeFromCart(${index})" class="remove-btn">×</button>
         `;
         cartItems.appendChild(itemElement);
     });
@@ -62,7 +66,8 @@ function updateCartDisplay() {
 }
 
 function removeFromCart(index) {
-    total -= cart[index].price;
+    const item = cart[index];
+    total -= item.price;
     cart.splice(index, 1);
     updateFloatingCart();
     updateCartDisplay();
@@ -77,39 +82,119 @@ function clearCart() {
 
 // Place order function
 function placeOrder() {
-    if (!window.tableId) {
-        alert('Error: No table ID found. Please scan the QR code again.');
-        return;
-    }
-    
     if (cart.length === 0) {
         alert('Your cart is empty!');
         return;
     }
 
+    const tableId = getTableId();
+    if (!tableId) {
+        alert('Error: No table ID found');
+        return;
+    }
+
     const orderData = {
-        tableId: window.tableId,
+        tableId: tableId,
         items: cart,
         total: total,
         status: 'pending',
-        timestamp: Date.now(),
-        orderDate: new Date().toISOString().split('T')[0],
-        orderTime: new Date().toLocaleTimeString()
+        orderTime: new Date().toLocaleString()
     };
+
+    // Show loading state
+    const orderBtn = document.querySelector('.order-btn');
+    if (orderBtn) {
+        orderBtn.disabled = true;
+        orderBtn.textContent = 'Placing Order...';
+    }
 
     database.ref('orders').push(orderData)
         .then((ref) => {
             console.log('Order sent successfully:', ref.key);
             clearCart();
             alert('Order placed successfully! Check the Orders tab to see your order status.');
-            // Switch to orders tab
             openTab('orders');
         })
         .catch((error) => {
             console.error('Error placing order:', error);
             alert('Error placing order. Please try again.');
+        })
+        .finally(() => {
+            // Reset button state
+            if (orderBtn) {
+                orderBtn.disabled = false;
+                orderBtn.textContent = 'Place Order';
+            }
         });
 }
+
+// Tab switching function
+function openTab(tabName) {
+    // Hide all tab content
+    const tabContents = document.getElementsByClassName('tab-content');
+    for (let content of tabContents) {
+        content.classList.remove('active');
+    }
+
+    // Remove active class from all buttons
+    const tabButtons = document.getElementsByClassName('tab-button');
+    for (let button of tabButtons) {
+        button.classList.remove('active');
+    }
+
+    // Show the selected tab content
+    const selectedTab = document.getElementById(tabName);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Add active class to the clicked button
+    const buttons = Array.from(tabButtons);
+    const activeButton = buttons.find(button => 
+        button.textContent.toLowerCase().includes(tabName)
+    );
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
+
+    // If opening orders tab, update the display
+    if (tabName === 'orders') {
+        updateCartDisplay();
+        loadOrders();
+    }
+}
+
+// Helper functions for spinner
+function showSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'flex';
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+}
+
+// When page loads or QR is scanned
+window.onload = function() {
+    // Get table ID from URL
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('table');
+    
+    if (!id) {
+        alert('No table ID provided! Please scan the QR code again.');
+        return;
+    }
+
+    // Initialize table and display table number
+    document.getElementById('table-number').textContent = id;
+}
+
+// Initialize cart on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateFloatingCart();
+    updateCartDisplay();
+});
 
 // Request bill function
 function requestBill() {
@@ -162,124 +247,3 @@ function requestBill() {
             alert('Error requesting bill. Please try again.');
         });
 }
-
-// Helper functions for spinner
-function showSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'flex';
-}
-
-function hideSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'none';
-}
-
-// When page loads or QR is scanned
-window.onload = function() {
-    // Get table ID from URL
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('table');
-    
-    if (!id) {
-        alert('No table ID provided! Please scan the QR code again.');
-        return;
-    }
-
-    // Initialize table and display table number
-    document.getElementById('table-number').textContent = id;
-}
-
-
-// Cart management
-let cart = [];
-let total = 0;
-
-function updateFloatingCart() {
-    const cartTotalFloat = document.getElementById('cart-total-float');
-    cartTotalFloat.textContent = `$${total.toFixed(2)}`;
-}
-
-function addToCart(item) {
-    cart.push(item);
-    total += item.price;
-    
-    // Update floating cart
-    updateFloatingCart();
-    
-    // Update cart in orders tab
-    updateCartDisplay();
-}
-
-function updateCartDisplay() {
-    const cartItems = document.getElementById('cart-items');
-    const totalElement = document.getElementById('total');
-    
-    if (!cartItems || !totalElement) return;
-    
-    cartItems.innerHTML = '';
-    cart.forEach((item, index) => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'cart-item';
-        itemElement.innerHTML = `
-            <span>${item.name}</span>
-            <span>$${item.price.toFixed(2)}</span>
-            <button onclick="removeFromCart(${index})" class="remove-btn">×</button>
-        `;
-        cartItems.appendChild(itemElement);
-    });
-    
-    totalElement.textContent = total.toFixed(2);
-}
-
-function removeFromCart(index) {
-    total -= cart[index].price;
-    cart.splice(index, 1);
-    updateFloatingCart();
-    updateCartDisplay();
-}
-
-function clearCart() {
-    cart = [];
-    total = 0;
-    updateFloatingCart();
-    updateCartDisplay();
-}
-
-// Modify your existing placeOrder function to include:
-function placeOrder() {
-    if (cart.length === 0) {
-        alert('Your cart is empty!');
-        return;
-    }
-
-    const tableId = getTableId();
-    if (!tableId) {
-        alert('Error: No table ID found');
-        return;
-    }
-
-    const orderData = {
-        tableId: tableId,
-        items: cart,
-        total: total,
-        status: 'pending',
-        orderTime: new Date().toLocaleString()
-    };
-
-    database.ref('orders').push(orderData)
-        .then((ref) => {
-            console.log('Order sent successfully:', ref.key);
-            clearCart();
-            alert('Order placed successfully! Check the Orders tab to see your order status.');
-            openTab('orders');
-        })
-        .catch((error) => {
-            console.error('Error placing order:', error);
-            alert('Error placing order. Please try again.');
-        });
-}
-
-// Add this to ensure the floating cart is updated when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    updateFloatingCart();
-});
