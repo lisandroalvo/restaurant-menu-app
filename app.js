@@ -9,7 +9,10 @@ const firebaseConfig = {
     appId: "1:1021718770殻:web:1f08d3c4f2bdb5f3f8c5b5"
 };
 
-// Initialize Firebase
+// Initialize Firebase (replace with your config)
+const firebaseConfig = {
+    // your firebase config here
+};
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
@@ -19,13 +22,8 @@ let total = 0;
 
 // DOM Elements
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize table ID
     initializeTableId();
-    
-    // Add event listeners
     initializeEventListeners();
-    
-    // Initialize floating cart
     updateFloatingCart();
 });
 
@@ -36,7 +34,6 @@ function initializeTableId() {
     if (tableId) {
         window.tableId = tableId;
         document.getElementById('table-number').textContent = tableId;
-        loadOrders();
     } else {
         console.error('No table ID in URL');
         alert('Error: No table ID found. Please scan the QR code again.');
@@ -44,12 +41,6 @@ function initializeTableId() {
 }
 
 function initializeEventListeners() {
-    // Tab switching
-    const tabButtons = document.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => openTab(button.getAttribute('data-tab')));
-    });
-
     // Add to cart buttons
     const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
     addToCartButtons.forEach(button => {
@@ -58,12 +49,25 @@ function initializeEventListeners() {
             const name = menuItem.getAttribute('data-name');
             const price = parseFloat(menuItem.getAttribute('data-price'));
             addToCart({name, price});
+            // Switch to orders tab after adding item
+            openTab('orders');
         });
     });
 
     // Floating cart
     const floatingCart = document.getElementById('floating-cart');
-    floatingCart.addEventListener('click', () => openTab('orders'));
+    if (floatingCart) {
+        floatingCart.addEventListener('click', () => openTab('orders'));
+    }
+
+    // Tab switching
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.getAttribute('data-tab');
+            openTab(tabName);
+        });
+    });
 
     // Place order button
     const placeOrderBtn = document.getElementById('place-order-btn');
@@ -82,13 +86,8 @@ function updateFloatingCart() {
 function addToCart(item) {
     cart.push(item);
     total += item.price;
-    
-    // Update displays
     updateFloatingCart();
     updateCartDisplay();
-    
-    // Show feedback
-    alert(`${item.name} added to cart!`);
 }
 
 function updateCartDisplay() {
@@ -168,7 +167,6 @@ function placeOrder() {
         return;
     }
 
-    // Show loading state
     const orderBtn = document.getElementById('place-order-btn');
     if (orderBtn) {
         orderBtn.disabled = true;
@@ -187,7 +185,8 @@ function placeOrder() {
         .then((ref) => {
             console.log('Order sent successfully:', ref.key);
             clearCart();
-            alert('Order placed successfully! Check the Orders tab to see your order status.');
+            alert('Order placed successfully!');
+            loadOrders();
         })
         .catch((error) => {
             console.error('Error placing order:', error);
@@ -240,83 +239,5 @@ function loadOrders() {
                 
                 ordersContainer.appendChild(orderElement);
             });
-        });
-}
-
-// Helper functions for spinner
-function showSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'flex';
-}
-
-function hideSpinner() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) spinner.style.display = 'none';
-}
-
-// When page loads or QR is scanned
-window.onload = function() {
-    // Get table ID from URL
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('table');
-    
-    if (!id) {
-        alert('No table ID provided! Please scan the QR code again.');
-        return;
-    }
-
-    // Initialize table and display table number
-    document.getElementById('table-number').textContent = id;
-}
-
-// Request bill function
-function requestBill() {
-    if (!window.tableId) {
-        alert('Error: No table ID found. Please scan the QR code again.');
-        return;
-    }
-
-    database.ref('orders')
-        .orderByChild('tableId')
-        .equalTo(window.tableId)
-        .once('value')
-        .then((snapshot) => {
-            if (!snapshot.exists()) {
-                alert('No orders found for this table!');
-                return;
-            }
-
-            let totalAmount = 0;
-            let pendingOrders = false;
-
-            snapshot.forEach((childSnapshot) => {
-                const order = childSnapshot.val();
-                if (order.status === 'pending' || order.status === 'preparing') {
-                    pendingOrders = true;
-                }
-                totalAmount += order.total;
-            });
-
-            if (pendingOrders) {
-                alert('Please wait until all orders are completed before requesting the bill.');
-                return;
-            }
-
-            const billRequest = {
-                tableId: window.tableId,
-                total: totalAmount,
-                status: 'pending',
-                timestamp: Date.now()
-            };
-
-            return database.ref('billRequests').push(billRequest);
-        })
-        .then(() => {
-            if (!arguments[0]) return; // Skip if previous then() returned undefined
-            alert('Bill requested! Please wait for the staff.');
-        })
-        .catch((error) => {
-            console.error('Error requesting bill:', error);
-            alert('Error requesting bill. Please try again.');
         });
 }

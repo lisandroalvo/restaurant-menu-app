@@ -27,6 +27,7 @@
         <button class="tab-button" data-tab="orders">My Orders</button>
     </div>
 
+    <!-- Menu Tab -->
     <div id="menu" class="tab-content active">
         <div class="menu-section">
             <h2>Main Dishes</h2>
@@ -56,6 +57,7 @@
         </div>
     </div>
 
+    <!-- Orders Tab -->
     <div id="orders" class="tab-content">
         <h2>My Orders</h2>
         
@@ -73,166 +75,6 @@
         <div id="orders-container"></div>
     </div>
 
-    <!-- Loading Spinner -->
-    <div id="loading-spinner" class="spinner-container">
-        <div class="spinner"></div>
-    </div>
-
     <script src="app.js"></script>
-    <script>
-        // Table ID handling
-        document.addEventListener('DOMContentLoaded', function() {
-            const params = new URLSearchParams(window.location.search);
-            const table = params.get('table');
-            
-            if (table) {
-                document.getElementById('table-number').textContent = table;
-                window.tableId = table;
-                console.log('Table ID set:', table);
-                // Load orders for this table
-                loadOrders();
-            } else {
-                console.error('No table ID in URL');
-                alert('Error: No table ID found. Please scan the QR code again.');
-                document.getElementById('current-cart').style.display = 'none';
-            }
-        });
-
-        // Tab switching
-        const tabButtons = document.querySelectorAll('.tab-button');
-        tabButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                // Hide all tab content
-                const tabContents = document.querySelectorAll('.tab-content');
-                tabContents.forEach(content => content.classList.remove('active'));
-
-                // Remove active class from all buttons
-                tabButtons.forEach(button => button.classList.remove('active'));
-
-                // Show the selected tab content
-                const tabName = this.getAttribute('data-tab');
-                document.getElementById(tabName).classList.add('active');
-                
-                // Add active class to the clicked button
-                this.classList.add('active');
-
-                // Reload orders when switching to orders tab
-                if (tabName === 'orders') {
-                    loadOrders();
-                }
-            });
-        });
-
-        // Add to cart functionality
-        const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
-        addToCartButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const menuItem = this.parentNode;
-                const name = menuItem.getAttribute('data-name');
-                const price = parseFloat(menuItem.getAttribute('data-price'));
-                addToCart({name, price});
-            });
-        });
-
-        // Load orders function
-        function loadOrders() {
-            const ordersContainer = document.getElementById('orders-container');
-            if (!window.tableId) return;
-
-            // Get orders from Firebase
-            firebase.database().ref('orders')
-                .orderByChild('tableId')
-                .equalTo(window.tableId)
-                .on('value', function(snapshot) {
-                    ordersContainer.innerHTML = '';
-                    
-                    if (!snapshot.exists()) {
-                        ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
-                        return;
-                    }
-
-                    snapshot.forEach(function(childSnapshot) {
-                        const order = childSnapshot.val();
-                        const orderElement = document.createElement('div');
-                        orderElement.className = 'order-card';
-                        
-                        const items = order.items.map(item => 
-                            `<div class="order-item">
-                                <span>${item.name}</span>
-                                <span>$${item.price.toFixed(2)}</span>
-                            </div>`
-                        ).join('');
-
-                        orderElement.innerHTML = `
-                            <div class="order-header">
-                                <span class="order-id">Order #${childSnapshot.key.slice(-4)}</span>
-                                <span class="order-status ${order.status}">${order.status}</span>
-                            </div>
-                            <div class="order-items">${items}</div>
-                            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                            <div class="order-time">Ordered at: ${order.orderTime}</div>
-                        `;
-                        
-                        ordersContainer.appendChild(orderElement);
-                    });
-                });
-        }
-
-        // Add to cart function
-        function addToCart(item) {
-            const cartItems = document.getElementById('cart-items');
-            const cartItem = document.createElement('div');
-            cartItem.className = 'cart-item';
-            cartItem.innerHTML = `
-                <span>${item.name}</span>
-                <span>$${item.price.toFixed(2)}</span>
-            `;
-            cartItems.appendChild(cartItem);
-
-            // Update cart total
-            const total = parseFloat(document.getElementById('total').textContent) + item.price;
-            document.getElementById('total').textContent = total.toFixed(2);
-            document.getElementById('cart-total-float').textContent = `$${total.toFixed(2)}`;
-        }
-
-        // Place order function
-        document.getElementById('place-order-btn').addEventListener('click', function() {
-            placeOrder();
-        });
-
-        // Place order function
-        function placeOrder() {
-            // Get cart items
-            const cartItems = document.getElementById('cart-items');
-            const items = [];
-            const cartItemElements = cartItems.children;
-            for (let i = 0; i < cartItemElements.length; i++) {
-                const cartItem = cartItemElements[i];
-                const name = cartItem.children[0].textContent;
-                const price = parseFloat(cartItem.children[1].textContent.slice(1));
-                items.push({name, price});
-            }
-
-            // Get total
-            const total = parseFloat(document.getElementById('total').textContent);
-
-            // Create order object
-            const order = {
-                tableId: window.tableId,
-                items,
-                total,
-                status: 'pending',
-                orderTime: new Date().toLocaleTimeString()
-            };
-
-            // Add order to Firebase
-            firebase.database().ref('orders').push(order);
-
-            // Clear cart
-            cartItems.innerHTML = '';
-            document.getElementById('total').textContent = '0.00';
-            document.getElementById('cart-total-float').textContent = '$0.00';
-        }
-    </script>
 </body>
 </html>
