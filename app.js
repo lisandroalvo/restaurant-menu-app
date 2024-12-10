@@ -9,10 +9,7 @@ const firebaseConfig = {
     appId: "1:1021718770殻:web:1f08d3c4f2bdb5f3f8c5b5"
 };
 
-// Initialize Firebase (replace with your config)
-const firebaseConfig = {
-    // your firebase config here
-};
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
@@ -25,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeTableId();
     initializeEventListeners();
     updateFloatingCart();
+    loadOrders(); // Load existing orders
 });
 
 function initializeTableId() {
@@ -41,6 +39,15 @@ function initializeTableId() {
 }
 
 function initializeEventListeners() {
+    // Tab switching
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.getAttribute('data-tab');
+            openTab(tabName);
+        });
+    });
+
     // Add to cart buttons
     const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
     addToCartButtons.forEach(button => {
@@ -49,23 +56,7 @@ function initializeEventListeners() {
             const name = menuItem.getAttribute('data-name');
             const price = parseFloat(menuItem.getAttribute('data-price'));
             addToCart({name, price});
-            // Switch to orders tab after adding item
-            openTab('orders');
-        });
-    });
-
-    // Floating cart
-    const floatingCart = document.getElementById('floating-cart');
-    if (floatingCart) {
-        floatingCart.addEventListener('click', () => openTab('orders'));
-    }
-
-    // Tab switching
-    const tabButtons = document.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tabName = button.getAttribute('data-tab');
-            openTab(tabName);
+            openTab('orders'); // Switch to orders tab after adding item
         });
     });
 
@@ -77,17 +68,17 @@ function initializeEventListeners() {
 }
 
 function updateFloatingCart() {
-    const cartTotalFloat = document.getElementById('cart-total-float');
-    if (cartTotalFloat) {
-        cartTotalFloat.textContent = `$${total.toFixed(2)}`;
+    const floatingCart = document.getElementById('cart-total-float');
+    if (floatingCart) {
+        floatingCart.textContent = `$${total.toFixed(2)}`;
     }
 }
 
 function addToCart(item) {
     cart.push(item);
     total += item.price;
-    updateFloatingCart();
     updateCartDisplay();
+    updateFloatingCart();
 }
 
 function updateCartDisplay() {
@@ -95,37 +86,36 @@ function updateCartDisplay() {
     const totalElement = document.getElementById('total');
     
     if (!cartItems || !totalElement) return;
-    
+
     cartItems.innerHTML = '';
     cart.forEach((item, index) => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'cart-item';
-        itemElement.innerHTML = `
+        const cartItem = document.createElement('div');
+        cartItem.className = 'cart-item';
+        cartItem.innerHTML = `
             <span>${item.name}</span>
             <span>$${item.price.toFixed(2)}</span>
-            <button onclick="removeFromCart(${index})" class="remove-btn">
-                <i class="fas fa-times"></i>
-            </button>
+            <button onclick="removeFromCart(${index})" class="remove-item">×</button>
         `;
-        cartItems.appendChild(itemElement);
+        cartItems.appendChild(cartItem);
     });
-    
+
     totalElement.textContent = total.toFixed(2);
 }
 
 function removeFromCart(index) {
-    const item = cart[index];
-    total -= item.price;
-    cart.splice(index, 1);
-    updateFloatingCart();
-    updateCartDisplay();
+    if (index >= 0 && index < cart.length) {
+        total -= cart[index].price;
+        cart.splice(index, 1);
+        updateCartDisplay();
+        updateFloatingCart();
+    }
 }
 
 function clearCart() {
     cart = [];
     total = 0;
-    updateFloatingCart();
     updateCartDisplay();
+    updateFloatingCart();
 }
 
 function openTab(tabName) {
@@ -142,61 +132,43 @@ function openTab(tabName) {
     if (selectedTab) {
         selectedTab.classList.add('active');
     }
-    
+
     // Add active class to the clicked button
-    const activeButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
-    if (activeButton) {
-        activeButton.classList.add('active');
+    const selectedButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
     }
 
-    // If opening orders tab, update the display
+    // Reload orders when switching to orders tab
     if (tabName === 'orders') {
-        updateCartDisplay();
         loadOrders();
     }
 }
 
 function placeOrder() {
-    if (cart.length === 0) {
-        alert('Your cart is empty!');
+    if (!window.tableId || cart.length === 0) {
+        alert('Please add items to your cart before placing an order.');
         return;
     }
 
-    if (!window.tableId) {
-        alert('Error: No table ID found');
-        return;
-    }
-
-    const orderBtn = document.getElementById('place-order-btn');
-    if (orderBtn) {
-        orderBtn.disabled = true;
-        orderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Placing Order...';
-    }
-
-    const orderData = {
+    const order = {
         tableId: window.tableId,
         items: cart,
         total: total,
         status: 'pending',
-        orderTime: new Date().toLocaleString()
+        orderTime: new Date().toLocaleTimeString()
     };
 
-    database.ref('orders').push(orderData)
-        .then((ref) => {
-            console.log('Order sent successfully:', ref.key);
-            clearCart();
+    // Add order to Firebase
+    database.ref('orders').push(order)
+        .then(() => {
             alert('Order placed successfully!');
+            clearCart();
             loadOrders();
         })
-        .catch((error) => {
+        .catch(error => {
             console.error('Error placing order:', error);
             alert('Error placing order. Please try again.');
-        })
-        .finally(() => {
-            if (orderBtn) {
-                orderBtn.disabled = false;
-                orderBtn.textContent = 'Place Order';
-            }
         });
 }
 
@@ -204,14 +176,15 @@ function loadOrders() {
     const ordersContainer = document.getElementById('orders-container');
     if (!window.tableId || !ordersContainer) return;
 
-    ordersContainer.innerHTML = '<h3>Previous Orders</h3>';
-    
+    // Get orders from Firebase
     database.ref('orders')
         .orderByChild('tableId')
         .equalTo(window.tableId)
         .on('value', function(snapshot) {
+            ordersContainer.innerHTML = '';
+            
             if (!snapshot.exists()) {
-                ordersContainer.innerHTML += '<div class="no-orders">No previous orders</div>';
+                ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
                 return;
             }
 
@@ -220,12 +193,12 @@ function loadOrders() {
                 const orderElement = document.createElement('div');
                 orderElement.className = 'order-card';
                 
-                const items = order.items.map(item => `
-                    <div class="order-item">
+                const items = order.items.map(item => 
+                    `<div class="order-item">
                         <span>${item.name}</span>
                         <span>$${item.price.toFixed(2)}</span>
-                    </div>
-                `).join('');
+                    </div>`
+                ).join('');
 
                 orderElement.innerHTML = `
                     <div class="order-header">
