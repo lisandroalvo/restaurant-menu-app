@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeTableId();
     initializeEventListeners();
     updateFloatingCart();
-    loadOrders(); // Load existing orders
+    loadOrders();
 });
 
 function initializeTableId() {
@@ -31,7 +31,10 @@ function initializeTableId() {
     
     if (tableId) {
         window.tableId = tableId;
-        document.getElementById('table-number').textContent = tableId;
+        const tableNumber = document.getElementById('table-number');
+        if (tableNumber) {
+            tableNumber.textContent = tableId;
+        }
     } else {
         console.error('No table ID in URL');
         alert('Error: No table ID found. Please scan the QR code again.');
@@ -44,7 +47,7 @@ function initializeEventListeners() {
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
             const tabName = button.getAttribute('data-tab');
-            openTab(tabName);
+            switchTab(tabName);
         });
     });
 
@@ -56,9 +59,17 @@ function initializeEventListeners() {
             const name = menuItem.getAttribute('data-name');
             const price = parseFloat(menuItem.getAttribute('data-price'));
             addToCart({name, price});
-            openTab('orders'); // Switch to orders tab after adding item
+            switchTab('orders'); // Switch to orders tab after adding item
         });
     });
+
+    // Floating cart button
+    const floatingCart = document.getElementById('floating-cart');
+    if (floatingCart) {
+        floatingCart.addEventListener('click', () => {
+            switchTab('orders');
+        });
+    }
 
     // Place order button
     const placeOrderBtn = document.getElementById('place-order-btn');
@@ -67,10 +78,41 @@ function initializeEventListeners() {
     }
 }
 
+function switchTab(tabName) {
+    // Hide all tab content
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Remove active class from all buttons
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.classList.remove('active');
+    });
+
+    // Show the selected tab content
+    const selectedTab = document.getElementById(tabName);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+
+    // Add active class to the clicked button
+    const selectedButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+
+    // If switching to orders tab, refresh orders
+    if (tabName === 'orders') {
+        loadOrders();
+    }
+}
+
 function updateFloatingCart() {
-    const floatingCart = document.getElementById('cart-total-float');
-    if (floatingCart) {
-        floatingCart.textContent = `$${total.toFixed(2)}`;
+    const cartTotalFloat = document.getElementById('cart-total-float');
+    if (cartTotalFloat) {
+        cartTotalFloat.textContent = `$${total.toFixed(2)}`;
     }
 }
 
@@ -116,33 +158,6 @@ function clearCart() {
     total = 0;
     updateCartDisplay();
     updateFloatingCart();
-}
-
-function openTab(tabName) {
-    // Hide all tab content
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => content.classList.remove('active'));
-
-    // Remove active class from all buttons
-    const tabButtons = document.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => button.classList.remove('active'));
-
-    // Show the selected tab content
-    const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    }
-
-    // Add active class to the clicked button
-    const selectedButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
-    if (selectedButton) {
-        selectedButton.classList.add('active');
-    }
-
-    // Reload orders when switching to orders tab
-    if (tabName === 'orders') {
-        loadOrders();
-    }
 }
 
 function placeOrder() {
