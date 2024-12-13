@@ -32,7 +32,7 @@ function switchTab(tabId) {
     document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
     
     if (tabId === 'order-history') {
-        loadHistoryOrders();
+        // loadHistoryOrders();
     }
 }
 
@@ -45,68 +45,74 @@ function playNotification() {
 
 let selectedOrders = new Set();
 
-function loadOrders() {
-    const ordersContainer = document.getElementById('orders-container');
-    const historyContainer = document.getElementById('history-container');
+// Initialize Firebase listeners when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeOrderListeners();
+    setupTabs();
+});
+
+function initializeOrderListeners() {
+    const ordersRef = database.ref('orders');
     
-    if (!ordersContainer || !historyContainer) return;
+    // Listen for new orders
+    ordersRef.on('child_added', function(snapshot) {
+        const order = {
+            id: snapshot.key,
+            ...snapshot.val()
+        };
+        displayOrder(order);
+    });
 
-    database.ref('orders').on('value', function(snapshot) {
-        ordersContainer.innerHTML = '';
-        historyContainer.innerHTML = '';
-        selectedOrders.clear();
-        
-        if (!snapshot.exists()) {
-            ordersContainer.innerHTML = '<p>No orders</p>';
-            historyContainer.innerHTML = '<p>No orders in history</p>';
-            return;
-        }
+    // Listen for order updates
+    ordersRef.on('child_changed', function(snapshot) {
+        const order = {
+            id: snapshot.key,
+            ...snapshot.val()
+        };
+        updateOrderDisplay(order);
+    });
 
-        const activeOrders = [];
-        const historyOrders = [];
-
-        snapshot.forEach(childSnapshot => {
-            const order = {
-                id: childSnapshot.key,
-                ...childSnapshot.val()
-            };
-            
-            if (order.status === 'completed') {
-                historyOrders.push(order);
-            } else {
-                activeOrders.push(order);
-            }
-        });
-
-        // Sort orders by timestamp, newest first
-        activeOrders.sort((a, b) => b.timestamp - a.timestamp);
-        historyOrders.sort((a, b) => b.timestamp - a.timestamp);
-
-        // Display active orders
-        if (activeOrders.length === 0) {
-            ordersContainer.innerHTML = '<p>No active orders</p>';
-        } else {
-            activeOrders.forEach(order => {
-                ordersContainer.appendChild(createOrderElement(order, false));
-            });
-        }
-
-        // Display history orders
-        if (historyOrders.length === 0) {
-            historyContainer.innerHTML = '<p>No orders in history</p>';
-        } else {
-            historyOrders.forEach(order => {
-                historyContainer.appendChild(createOrderElement(order, true));
-            });
-        }
+    // Listen for order removals
+    ordersRef.on('child_removed', function(snapshot) {
+        const orderId = snapshot.key;
+        removeOrderElement(orderId);
     });
 }
 
-function createOrderElement(order, isHistory) {
+function displayOrder(order) {
+    const container = order.status === 'completed' ? 
+        document.getElementById('history-container') : 
+        document.getElementById('orders-container');
+    
+    if (!container) return;
+
+    const existingOrder = document.getElementById(`order-${order.id}`);
+    if (existingOrder) {
+        existingOrder.remove();
+    }
+
+    const orderElement = createOrderElement(order);
+    container.insertBefore(orderElement, container.firstChild);
+}
+
+function updateOrderDisplay(order) {
+    removeOrderElement(order.id);
+    displayOrder(order);
+}
+
+function removeOrderElement(orderId) {
+    const element = document.getElementById(`order-${orderId}`);
+    if (element) {
+        element.remove();
+    }
+}
+
+function createOrderElement(order) {
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
     orderElement.id = `order-${order.id}`;
 
+    const isHistory = order.status === 'completed';
     const items = order.items.map(item => `
         <div class="order-item">
             <span>${item.name}</span>
@@ -131,6 +137,7 @@ function createOrderElement(order, isHistory) {
         <div class="order-header">
             ${checkbox}
             <span class="order-id">Order #${order.id.slice(-4)}</span>
+            <span class="table-number">Table ${order.tableId}</span>
             <span class="order-status ${order.status}">${order.status}</span>
         </div>
         <div class="order-items">${items}</div>
@@ -175,10 +182,7 @@ function updateOrderStatus(orderId, status) {
     });
 }
 
-// Initialize tabs
-document.addEventListener('DOMContentLoaded', function() {
-    loadOrders();
-    
+function setupTabs() {
     const tabs = document.querySelectorAll('[data-tab-target]');
     const tabContents = document.querySelectorAll('[data-tab-content]');
     
@@ -198,4 +202,4 @@ document.addEventListener('DOMContentLoaded', function() {
             target.classList.add('active');
         });
     });
-});
+}
