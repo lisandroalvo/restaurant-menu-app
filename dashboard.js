@@ -181,7 +181,8 @@ function moveSelectedToHistory() {
             return database.ref(`orders/${orderId}`).update({
                 status: 'completed',
                 completedAt: Date.now(),
-                orderTime: orderData.timestamp || new Date().toLocaleString() // Ensure we have orderTime
+                orderTime: orderData.timestamp || new Date().toLocaleString(),
+                isHistory: true // Add this flag to make sure it appears in history
             });
         }).then(() => {
             // Remove from active orders view
@@ -200,6 +201,7 @@ function moveSelectedToHistory() {
         
         // Switch to history tab and refresh
         switchTab('order-history');
+        loadHistoryOrders(); // Explicitly reload history orders
         
         // Show success message
         alert('Orders successfully moved to history');
@@ -212,11 +214,12 @@ function moveSelectedToHistory() {
 // Load history orders
 function loadHistoryOrders() {
     const historyContainer = document.querySelector('.history-container');
-    const selectedDate = document.getElementById('history-date').value;
+    const selectedDate = document.getElementById('history-date')?.value;
     
     // Clear existing content
     historyContainer.innerHTML = '<p>Loading history...</p>';
     
+    // Query for completed orders
     database.ref('orders')
         .orderByChild('status')
         .equalTo('completed')
@@ -227,6 +230,8 @@ function loadHistoryOrders() {
             // Group orders by date
             snapshot.forEach(childSnapshot => {
                 const order = childSnapshot.val();
+                if (!order.isHistory) return; // Skip if not marked as history
+                
                 const date = new Date(order.completedAt || order.timestamp).toLocaleDateString();
                 if (!ordersByDate[date]) {
                     ordersByDate[date] = [];
@@ -270,7 +275,7 @@ function loadHistoryOrders() {
                         <div class="history-date-header">${date}</div>
                         <div class="history-orders">
                             ${orders.map(order => `
-                                <div class="order-card">
+                                <div class="order-card history-order">
                                     <div class="order-header">
                                         <span class="order-id">Order #${order.id.slice(-4)}</span>
                                         <span class="table-number">Table ${order.tableId}</span>
@@ -301,31 +306,6 @@ function loadHistoryOrders() {
             console.error('Error loading history:', error);
             historyContainer.innerHTML = '<p>Error loading history orders. Please try again.</p>';
         });
-}
-
-// Toggle select all orders
-function toggleSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    const orderCheckboxes = document.querySelectorAll('.order-select');
-    
-    orderCheckboxes.forEach(checkbox => {
-        checkbox.checked = selectAllCheckbox.checked;
-    });
-}
-
-// Update select all checkbox state
-function updateSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    const orderCheckboxes = document.querySelectorAll('.order-select');
-    const checkedCheckboxes = document.querySelectorAll('.order-select:checked');
-    
-    if (orderCheckboxes.length === 0) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.disabled = true;
-    } else {
-        selectAllCheckbox.disabled = false;
-        selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
-    }
 }
 
 // Initialize listeners
@@ -370,6 +350,19 @@ function initializeListeners() {
         displayHistoryItem(historyId, historyData);
     });
     
+    // Initialize history date filter with today's date
+    const historyDateFilter = document.getElementById('history-date');
+    if (historyDateFilter) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        historyDateFilter.value = `${year}-${month}-${day}`;
+    }
+    
+    // Add listener for history date filter
+    historyDateFilter?.addEventListener('change', () => loadHistoryOrders());
+    
     // Set default date filter to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('history-date').value = today;
@@ -384,3 +377,28 @@ function initializeListeners() {
 document.addEventListener('DOMContentLoaded', () => {
     initializeListeners();
 });
+
+// Toggle select all orders
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    const orderCheckboxes = document.querySelectorAll('.order-select');
+    
+    orderCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+// Update select all checkbox state
+function updateSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    const orderCheckboxes = document.querySelectorAll('.order-select');
+    const checkedCheckboxes = document.querySelectorAll('.order-select:checked');
+    
+    if (orderCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.disabled = true;
+    } else {
+        selectAllCheckbox.disabled = false;
+        selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
+    }
+}
