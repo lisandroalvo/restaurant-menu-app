@@ -190,7 +190,7 @@ function moveSelectedToHistory() {
             status: 'completed',
             completedAt: Date.now(),
             isHistory: true,
-            visible: false // This will hide it from user's view
+            visible: false
         }).then(() => {
             // Remove from active orders view
             if (orderCard) {
@@ -208,6 +208,7 @@ function moveSelectedToHistory() {
         
         // Switch to history tab and refresh
         switchTab('order-history');
+        loadHistoryOrders(); // Explicitly reload history
         
         // Show success message
         alert('Orders successfully moved to history');
@@ -240,6 +241,7 @@ function loadHistoryOrders() {
     // Clear existing content
     historyContainer.innerHTML = '';
     
+    // Create a query for history orders
     database.ref('orders')
         .orderByChild('completedAt')
         .once('value')
@@ -249,7 +251,7 @@ function loadHistoryOrders() {
             // Group orders by date
             snapshot.forEach(childSnapshot => {
                 const order = childSnapshot.val();
-                if (order.isHistory) {
+                if (order.isHistory === true) { // Explicitly check for true
                     const date = new Date(order.completedAt).toLocaleDateString();
                     if (!ordersByDate[date]) {
                         ordersByDate[date] = [];
@@ -260,6 +262,12 @@ function loadHistoryOrders() {
                     });
                 }
             });
+            
+            // If no orders found
+            if (Object.keys(ordersByDate).length === 0) {
+                historyContainer.innerHTML = '<p>No history orders found</p>';
+                return;
+            }
             
             // Filter by selected date if any
             if (selectedDate) {
@@ -272,12 +280,6 @@ function loadHistoryOrders() {
                     historyContainer.innerHTML = '<p>No orders found for selected date</p>';
                     return;
                 }
-            }
-            
-            // If no orders found
-            if (Object.keys(ordersByDate).length === 0) {
-                historyContainer.innerHTML = '<p>No history orders found</p>';
-                return;
             }
             
             // Create date groups
