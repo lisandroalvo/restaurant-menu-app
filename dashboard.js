@@ -43,340 +43,159 @@ function playNotification() {
     });
 }
 
-// Display active order
-function displayActiveOrder(orderId, orderData) {
-    if (orderData.isHistory || orderData.visible === false) return; // Don't display history or hidden orders
+let selectedOrders = new Set();
+
+function loadOrders() {
+    const ordersContainer = document.getElementById('orders-container');
+    const historyContainer = document.getElementById('history-container');
     
+    if (!ordersContainer || !historyContainer) return;
+
+    database.ref('orders').on('value', function(snapshot) {
+        ordersContainer.innerHTML = '';
+        historyContainer.innerHTML = '';
+        selectedOrders.clear();
+        
+        if (!snapshot.exists()) {
+            ordersContainer.innerHTML = '<p>No orders</p>';
+            historyContainer.innerHTML = '<p>No orders in history</p>';
+            return;
+        }
+
+        const activeOrders = [];
+        const historyOrders = [];
+
+        snapshot.forEach(childSnapshot => {
+            const order = {
+                id: childSnapshot.key,
+                ...childSnapshot.val()
+            };
+            
+            if (order.status === 'completed') {
+                historyOrders.push(order);
+            } else {
+                activeOrders.push(order);
+            }
+        });
+
+        // Sort orders by timestamp, newest first
+        activeOrders.sort((a, b) => b.timestamp - a.timestamp);
+        historyOrders.sort((a, b) => b.timestamp - a.timestamp);
+
+        // Display active orders
+        if (activeOrders.length === 0) {
+            ordersContainer.innerHTML = '<p>No active orders</p>';
+        } else {
+            activeOrders.forEach(order => {
+                ordersContainer.appendChild(createOrderElement(order, false));
+            });
+        }
+
+        // Display history orders
+        if (historyOrders.length === 0) {
+            historyContainer.innerHTML = '<p>No orders in history</p>';
+        } else {
+            historyOrders.forEach(order => {
+                historyContainer.appendChild(createOrderElement(order, true));
+            });
+        }
+    });
+}
+
+function createOrderElement(order, isHistory) {
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
-    orderElement.id = `order-${orderId}`;
+    orderElement.id = `order-${order.id}`;
+
+    const items = order.items.map(item => `
+        <div class="order-item">
+            <span>${item.name}</span>
+            <span>$${item.price.toFixed(2)}</span>
+        </div>
+    `).join('');
+
+    const checkbox = isHistory ? '' : `
+        <input type="checkbox" class="order-checkbox" data-order-id="${order.id}"
+               onchange="toggleOrderSelection('${order.id}')">
+    `;
+
+    const statusButtons = isHistory ? '' : `
+        <div class="status-buttons">
+            <button onclick="updateOrderStatus('${order.id}', 'preparing')">Preparing</button>
+            <button onclick="updateOrderStatus('${order.id}', 'ready')">Ready</button>
+            <button onclick="updateOrderStatus('${order.id}', 'completed')">Complete</button>
+        </div>
+    `;
 
     orderElement.innerHTML = `
         <div class="order-header">
-            <input type="checkbox" class="order-select" data-order-id="${orderId}" onchange="updateSelectAll()">
-            <span class="table-number">Table ${orderData.tableId}</span>
-            <span class="status-badge status-${orderData.status}">${orderData.status}</span>
+            ${checkbox}
+            <span class="order-id">Order #${order.id.slice(-4)}</span>
+            <span class="order-status ${order.status}">${order.status}</span>
         </div>
-        <div class="order-items">
-            ${orderData.items.map(item => `
-                <div class="order-item">
-                    <span>${item.quantity}x ${item.name}</span>
-                    <span>$${item.price.toFixed(2)}</span>
-                </div>
-            `).join('')}
-        </div>
-        <div class="order-total">Total: $${orderData.total.toFixed(2)}</div>
-        <div class="order-actions">
-            <button onclick="updateOrderStatus('${orderId}', 'preparing')">Preparing</button>
-            <button onclick="updateOrderStatus('${orderId}', 'ready')">Ready</button>
-            <button onclick="updateOrderStatus('${orderId}', 'delivered')">Delivered</button>
-        </div>
+        <div class="order-items">${items}</div>
+        <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+        <div class="order-time">Ordered at: ${order.orderTime}</div>
+        ${statusButtons}
     `;
 
-    document.querySelector('#active-orders .orders-container').appendChild(orderElement);
-    updateSelectAll();
+    return orderElement;
 }
 
-// Display bill request
-function displayBillRequest(requestId, requestData) {
-    const billElement = document.createElement('div');
-    billElement.className = 'bill-request-card';
-    billElement.id = `bill-${requestId}`;
-
-    billElement.innerHTML = `
-        <div class="bill-header">
-            <span class="table-number">Table ${requestData.tableId}</span>
-            <span class="timestamp">${new Date(requestData.timestamp).toLocaleString()}</span>
-        </div>
-        <div class="bill-total">Total: $${requestData.total.toFixed(2)}</div>
-        <div class="bill-actions">
-            <button onclick="processBill('${requestId}')">Process Bill</button>
-            <button onclick="moveToHistory('${requestId}')">Complete Order</button>
-        </div>
-    `;
-
-    document.querySelector('#bill-requests .bill-requests-container').appendChild(billElement);
-}
-
-// Update order status
-function updateOrderStatus(orderId, newStatus) {
-    database.ref(`orders/${orderId}`).update({
-        status: newStatus,
-        lastUpdated: Date.now()
-    }).then(() => {
-        const statusBadge = document.querySelector(`#order-${orderId} .status-badge`);
-        if (statusBadge) {
-            statusBadge.className = `status-badge status-${newStatus}`;
-            statusBadge.textContent = newStatus;
-        }
-
-        if (newStatus === 'delivered') {
-            // Move to history after delivery
-            moveToHistory(orderId);
-        }
-    }).catch(error => {
-        console.error('Error updating status:', error);
-        alert('Error updating order status');
-    });
-}
-
-// Process bill
-function processBill(requestId) {
-    if (confirm('Process this bill?')) {
-        database.ref(`billRequests/${requestId}`).update({
-            status: 'processed',
-            processedAt: Date.now()
-        }).then(() => {
-            // Move to history
-            moveToHistory(requestId);
-        }).catch(error => {
-            console.error('Error processing bill:', error);
-            alert('Error processing bill');
-        });
+function toggleOrderSelection(orderId) {
+    if (selectedOrders.has(orderId)) {
+        selectedOrders.delete(orderId);
+    } else {
+        selectedOrders.add(orderId);
     }
 }
 
-// Move to history
-function moveToHistory(id) {
-    // Get the order or bill request
-    database.ref(`orders/${id}`).once('value')
-        .then(snapshot => {
-            const data = snapshot.val();
-            if (data) {
-                // Save to history
-                return database.ref(`orderHistory/${id}`).set({
-                    ...data,
-                    completedAt: Date.now()
-                }).then(() => {
-                    // Remove from active orders
-                    return database.ref(`orders/${id}`).remove();
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error moving to history:', error);
-            alert('Error completing order');
-        });
-}
+function selectAllOrders() {
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    const selectAllCheckbox = document.getElementById('select-all');
+    const isChecked = selectAllCheckbox.checked;
 
-// Move selected orders to history
-function moveSelectedToHistory() {
-    const selectedOrders = document.querySelectorAll('.order-select:checked');
-    
-    if (selectedOrders.length === 0) {
-        alert('Please select orders to move to history');
-        return;
-    }
-
-    if (!confirm(`Are you sure you want to move ${selectedOrders.length} order(s) to history?`)) {
-        return;
-    }
-
-    const promises = Array.from(selectedOrders).map(checkbox => {
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = isChecked;
         const orderId = checkbox.getAttribute('data-order-id');
-        const orderCard = document.getElementById(`order-${orderId}`);
-        
-        return database.ref(`orders/${orderId}`).update({
-            status: 'completed',
-            completedAt: Date.now()
-        }).then(() => {
-            // Remove from active orders view
-            if (orderCard) {
-                orderCard.remove();
-            }
-        });
-    });
-
-    Promise.all(promises).then(() => {
-        // Uncheck select all checkbox
-        const selectAllCheckbox = document.getElementById('select-all-orders');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = false;
+        if (isChecked) {
+            selectedOrders.add(orderId);
+        } else {
+            selectedOrders.delete(orderId);
         }
-        
-        // Switch to history tab and refresh
-        switchTab('order-history');
-        
-        // Show success message
-        alert('Orders successfully moved to history');
-    }).catch(error => {
-        console.error('Error moving orders to history:', error);
-        alert('Error moving orders to history. Please try again.');
     });
 }
 
-// Load history orders
-function loadHistoryOrders() {
-    const historyContainer = document.querySelector('.history-container');
-    const selectedDate = document.getElementById('history-date').value;
+function updateOrderStatus(orderId, status) {
+    database.ref(`orders/${orderId}`).update({
+        status: status
+    }).catch(error => {
+        console.error('Error updating order status:', error);
+        alert('Error updating order status. Please try again.');
+    });
+}
+
+// Initialize tabs
+document.addEventListener('DOMContentLoaded', function() {
+    loadOrders();
     
-    // Clear existing content
-    historyContainer.innerHTML = '<p>Loading history...</p>';
+    const tabs = document.querySelectorAll('[data-tab-target]');
+    const tabContents = document.querySelectorAll('[data-tab-content]');
     
-    database.ref('orders')
-        .orderByChild('status')
-        .equalTo('completed')
-        .once('value')
-        .then(snapshot => {
-            let ordersByDate = {};
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = document.querySelector(tab.dataset.tabTarget);
             
-            // Group orders by date
-            snapshot.forEach(childSnapshot => {
-                const order = childSnapshot.val();
-                const date = new Date(order.completedAt).toLocaleDateString();
-                if (!ordersByDate[date]) {
-                    ordersByDate[date] = [];
-                }
-                ordersByDate[date].push({
-                    id: childSnapshot.key,
-                    ...order
-                });
+            tabContents.forEach(tabContent => {
+                tabContent.classList.remove('active');
             });
             
-            // If no orders found
-            if (Object.keys(ordersByDate).length === 0) {
-                historyContainer.innerHTML = '<p>No history orders found</p>';
-                return;
-            }
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
             
-            // Filter by selected date if any
-            if (selectedDate) {
-                const formattedDate = new Date(selectedDate).toLocaleDateString();
-                if (ordersByDate[formattedDate]) {
-                    const filteredOrders = {};
-                    filteredOrders[formattedDate] = ordersByDate[formattedDate];
-                    ordersByDate = filteredOrders;
-                } else {
-                    historyContainer.innerHTML = '<p>No orders found for selected date</p>';
-                    return;
-                }
-            }
-            
-            // Clear loading message
-            historyContainer.innerHTML = '';
-            
-            // Create date groups
-            Object.entries(ordersByDate)
-                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-                .forEach(([date, orders]) => {
-                    const dateGroup = document.createElement('div');
-                    dateGroup.className = 'history-date-group';
-                    
-                    dateGroup.innerHTML = `
-                        <div class="history-date-header">${date}</div>
-                        <div class="history-orders">
-                            ${orders.map(order => `
-                                <div class="order-card">
-                                    <div class="order-header">
-                                        <span class="order-id">Order #${order.id.slice(-4)}</span>
-                                        <span class="table-number">Table ${order.tableId}</span>
-                                        <span class="status-badge status-completed">Completed</span>
-                                    </div>
-                                    <div class="order-items">
-                                        ${order.items.map(item => `
-                                            <div class="order-item">
-                                                <span>${item.quantity}x ${item.name}</span>
-                                                <span>$${item.price.toFixed(2)}</span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                                    <div class="order-time">
-                                        Ordered: ${order.orderTime}<br>
-                                        Completed: ${new Date(order.completedAt).toLocaleString()}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `;
-                    
-                    historyContainer.appendChild(dateGroup);
-                });
-        })
-        .catch(error => {
-            console.error('Error loading history:', error);
-            historyContainer.innerHTML = '<p>Error loading history orders. Please try again.</p>';
+            tab.classList.add('active');
+            target.classList.add('active');
         });
-}
-
-// Toggle select all orders
-function toggleSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    const orderCheckboxes = document.querySelectorAll('.order-select');
-    
-    orderCheckboxes.forEach(checkbox => {
-        checkbox.checked = selectAllCheckbox.checked;
     });
-}
-
-// Update select all checkbox state
-function updateSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    const orderCheckboxes = document.querySelectorAll('.order-select');
-    const checkedCheckboxes = document.querySelectorAll('.order-select:checked');
-    
-    if (orderCheckboxes.length === 0) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.disabled = true;
-    } else {
-        selectAllCheckbox.disabled = false;
-        selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
-    }
-}
-
-// Initialize listeners
-function initializeListeners() {
-    // Listen for new orders
-    database.ref('orders').on('child_added', snapshot => {
-        const orderId = snapshot.key;
-        const orderData = snapshot.val();
-        if (orderData.status !== 'completed') {
-            displayActiveOrder(orderId, orderData);
-            playNotification();
-        }
-    });
-
-    // Listen for order updates
-    database.ref('orders').on('child_changed', snapshot => {
-        const orderId = snapshot.key;
-        const orderData = snapshot.val();
-        const orderElement = document.getElementById(`order-${orderId}`);
-        if (orderElement) {
-            orderElement.remove();
-            if (orderData.status !== 'completed') {
-                displayActiveOrder(orderId, orderData);
-            }
-        }
-    });
-
-    // Listen for bill requests
-    database.ref('billRequests').on('child_added', snapshot => {
-        const requestId = snapshot.key;
-        const requestData = snapshot.val();
-        if (requestData.status === 'pending') {
-            displayBillRequest(requestId, requestData);
-            playNotification();
-        }
-    });
-
-    // Listen for history updates
-    database.ref('orderHistory').on('child_added', snapshot => {
-        const historyId = snapshot.key;
-        const historyData = snapshot.val();
-        displayHistoryItem(historyId, historyData);
-    });
-    
-    // Set default date filter to today
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('history-date').value = today;
-    
-    // Load initial data
-    if (document.querySelector('.tab-content.active').id === 'order-history') {
-        loadHistoryOrders();
-    }
-}
-
-// Initialize on load
-document.addEventListener('DOMContentLoaded', () => {
-    initializeListeners();
 });
