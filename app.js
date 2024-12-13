@@ -181,8 +181,8 @@ function loadOrders() {
         const orders = [];
         snapshot.forEach((childSnapshot) => {
             const order = childSnapshot.val();
-            // Include orders that are either not marked as hidden or are explicitly visible
-            if (!order.isHistory && order.visible !== false) {
+            // Only show orders that are not in history
+            if (!order.isHistory) {
                 orders.push({
                     id: childSnapshot.key,
                     ...order
@@ -196,9 +196,7 @@ function loadOrders() {
         }
 
         // Sort orders by timestamp (newest first)
-        orders.sort((a, b) => {
-            return new Date(b.timestamp || b.orderTime) - new Date(a.timestamp || a.orderTime);
-        });
+        orders.sort((a, b) => b.timestamp - a.timestamp);
 
         // Update the UI
         updateOrdersUI(orders);
@@ -267,9 +265,8 @@ function placeOrder() {
         items: cart,
         total: total,
         status: 'pending',
-        orderTime: new Date().toLocaleString(),
-        timestamp: Date.now(), // Add timestamp for sorting
-        visible: true // Ensure new orders are visible
+        timestamp: Date.now(),
+        orderTime: new Date().toLocaleString()
     };
 
     // Add order to Firebase

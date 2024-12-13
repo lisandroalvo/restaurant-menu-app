@@ -189,8 +189,7 @@ function moveSelectedToHistory() {
         return database.ref(`orders/${orderId}`).update({
             status: 'completed',
             completedAt: Date.now(),
-            isHistory: true,
-            visible: false
+            isHistory: true
         }).then(() => {
             // Remove from active orders view
             if (orderCard) {
@@ -208,7 +207,6 @@ function moveSelectedToHistory() {
         
         // Switch to history tab and refresh
         switchTab('order-history');
-        loadHistoryOrders(); // Explicitly reload history
         
         // Show success message
         alert('Orders successfully moved to history');
@@ -235,23 +233,25 @@ function updateSelectAll() {
 
 // Load history orders
 function loadHistoryOrders() {
+    console.log('Loading history orders...'); // Debug log
     const historyContainer = document.querySelector('.history-container');
     const selectedDate = document.getElementById('history-date').value;
     
     // Clear existing content
     historyContainer.innerHTML = '';
     
-    // Create a query for history orders
     database.ref('orders')
-        .orderByChild('completedAt')
+        .orderByChild('status')
+        .equalTo('completed')
         .once('value')
         .then(snapshot => {
+            console.log('Got history data:', snapshot.val()); // Debug log
             let ordersByDate = {};
             
             // Group orders by date
             snapshot.forEach(childSnapshot => {
                 const order = childSnapshot.val();
-                if (order.isHistory === true) { // Explicitly check for true
+                if (order.isHistory) {
                     const date = new Date(order.completedAt).toLocaleDateString();
                     if (!ordersByDate[date]) {
                         ordersByDate[date] = [];
@@ -309,7 +309,7 @@ function loadHistoryOrders() {
                                     </div>
                                     <div class="order-total">Total: $${order.total.toFixed(2)}</div>
                                     <div class="order-time">
-                                        Ordered: ${new Date(order.orderTime).toLocaleString()}<br>
+                                        Ordered: ${order.orderTime}<br>
                                         Completed: ${new Date(order.completedAt).toLocaleString()}
                                     </div>
                                 </div>
@@ -322,7 +322,7 @@ function loadHistoryOrders() {
         })
         .catch(error => {
             console.error('Error loading history:', error);
-            historyContainer.innerHTML = '<p>Error loading history orders</p>';
+            historyContainer.innerHTML = '<p>Error loading history orders. Please try again.</p>';
         });
 }
 
