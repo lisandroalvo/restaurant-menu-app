@@ -56,7 +56,16 @@ function playNotification() {
 
 // Display active order
 function displayActiveOrder(orderId, orderData) {
-    if (orderData.isHistory || orderData.visible === false) return; // Don't display history or hidden orders
+    // Only skip if order is explicitly marked as completed
+    if (orderData.status === 'completed') return;
+    
+    console.log('Displaying active order:', orderId, orderData);
+    
+    // Remove existing order if it's already displayed
+    const existingOrder = document.getElementById(`order-${orderId}`);
+    if (existingOrder) {
+        existingOrder.remove();
+    }
     
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
@@ -67,6 +76,7 @@ function displayActiveOrder(orderId, orderData) {
             <input type="checkbox" class="order-select" data-order-id="${orderId}" onchange="updateSelectAll()">
             <span class="table-number">Table ${orderData.tableId}</span>
             <span class="status-badge status-${orderData.status}">${orderData.status}</span>
+            <span class="order-time">${orderData.orderTime || new Date(orderData.timestamp).toLocaleString()}</span>
         </div>
         <div class="order-items">
             ${orderData.items.map(item => `
@@ -78,9 +88,9 @@ function displayActiveOrder(orderId, orderData) {
         </div>
         <div class="order-total">Total: $${orderData.total.toFixed(2)}</div>
         <div class="order-actions">
-            <button onclick="updateOrderStatus('${orderId}', 'preparing')">Preparing</button>
-            <button onclick="updateOrderStatus('${orderId}', 'ready')">Ready</button>
-            <button onclick="updateOrderStatus('${orderId}', 'delivered')">Delivered</button>
+            <button onclick="updateOrderStatus('${orderId}', 'preparing')" class="status-btn preparing-btn">Preparing</button>
+            <button onclick="updateOrderStatus('${orderId}', 'ready')" class="status-btn ready-btn">Ready</button>
+            <button onclick="updateOrderStatus('${orderId}', 'delivered')" class="status-btn delivered-btn">Delivered</button>
         </div>
     `;
 
@@ -395,10 +405,20 @@ function updateSelectAll() {
 
 // Initialize listeners
 function initializeListeners() {
+    console.log('Initializing dashboard listeners...');
+    
+    // Clear existing orders container
+    const ordersContainer = document.querySelector('#active-orders .orders-container');
+    if (ordersContainer) {
+        ordersContainer.innerHTML = '';
+    }
+    
     // Listen for new orders
     database.ref('orders').on('child_added', snapshot => {
         const orderId = snapshot.key;
         const orderData = snapshot.val();
+        console.log('New order received:', orderId, orderData);
+        
         if (orderData.status !== 'completed') {
             displayActiveOrder(orderId, orderData);
             playNotification();
@@ -409,7 +429,11 @@ function initializeListeners() {
     database.ref('orders').on('child_changed', snapshot => {
         const orderId = snapshot.key;
         const orderData = snapshot.val();
+        console.log('Order updated:', orderId, orderData);
+        
         const orderElement = document.getElementById(`order-${orderId}`);
+        
+        // If order exists in active orders
         if (orderElement) {
             orderElement.remove();
             if (orderData.status !== 'completed') {
@@ -422,24 +446,37 @@ function initializeListeners() {
     database.ref('billRequests').on('child_added', snapshot => {
         const requestId = snapshot.key;
         const requestData = snapshot.val();
+        console.log('New bill request:', requestId, requestData);
+        
         if (requestData.status === 'pending') {
             displayBillRequest(requestId, requestData);
             playNotification();
         }
     });
 
-    // Listen for history updates
-    database.ref('orderHistory').on('child_added', snapshot => {
-        const historyId = snapshot.key;
-        const historyData = snapshot.val();
-        displayHistoryItem(historyId, historyData);
-    });
-    
     // Set default date filter to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('history-date').value = today;
     
-    // Load initial data
+    // Load initial active orders
+    console.log('Loading initial active orders...');
+    database.ref('orders')
+        .orderByChild('status')
+        .once('value')
+        .then(snapshot => {
+            snapshot.forEach(childSnapshot => {
+                const orderId = childSnapshot.key;
+                const orderData = childSnapshot.val();
+                if (orderData.status !== 'completed') {
+                    displayActiveOrder(orderId, orderData);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading initial orders:', error);
+        });
+    
+    // Load history if we're on the history tab
     if (document.querySelector('.tab-content.active').id === 'order-history') {
         loadHistoryOrders();
     }
