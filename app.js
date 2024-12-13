@@ -160,6 +160,93 @@ function clearCart() {
     updateFloatingCart();
 }
 
+function loadOrders() {
+    const ordersContainer = document.getElementById('orders-container');
+    if (!window.tableId || !ordersContainer) return;
+
+    // Clear any existing listeners
+    database.ref('orders').off();
+
+    // Create a query for this table's orders
+    const query = database.ref('orders').orderByChild('tableId').equalTo(window.tableId);
+
+    // Listen for all existing and new orders
+    query.on('value', function(snapshot) {
+        if (!snapshot.exists()) {
+            ordersContainer.innerHTML = '<p>No orders yet</p>';
+            return;
+        }
+
+        // Get all orders and sort them by time (newest first)
+        const orders = [];
+        snapshot.forEach((childSnapshot) => {
+            orders.push({
+                id: childSnapshot.key,
+                ...childSnapshot.val()
+            });
+        });
+
+        // Sort orders by timestamp (newest first)
+        orders.sort((a, b) => {
+            return new Date(b.orderTime) - new Date(a.orderTime);
+        });
+
+        // Update the UI
+        updateOrdersUI(orders);
+    });
+}
+
+function updateOrdersUI(orders) {
+    const ordersContainer = document.getElementById('orders-container');
+    if (!ordersContainer) return;
+
+    // Keep track of existing order elements
+    const existingOrderElements = new Set();
+    orders.forEach(order => {
+        const orderId = `order-${order.id}`;
+        existingOrderElements.add(orderId);
+
+        let orderElement = document.getElementById(orderId);
+        
+        if (!orderElement) {
+            // Create new order element if it doesn't exist
+            orderElement = document.createElement('div');
+            orderElement.id = orderId;
+            orderElement.className = 'order-card';
+            ordersContainer.appendChild(orderElement);
+        }
+
+        // Update the order content
+        const items = order.items.map(item => 
+            `<div class="order-item">
+                <span>${item.name}</span>
+                <span>$${item.price.toFixed(2)}</span>
+            </div>`
+        ).join('');
+
+        orderElement.innerHTML = `
+            <div class="order-header">
+                <span class="order-id">Order #${order.id.slice(-4)}</span>
+                <span class="order-status ${order.status}">${order.status}</span>
+            </div>
+            <div class="order-items">${items}</div>
+            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+            <div class="order-time">Ordered at: ${order.orderTime}</div>
+        `;
+
+        // Add appropriate status class
+        orderElement.classList.remove('pending', 'preparing', 'ready', 'delivered');
+        orderElement.classList.add(order.status);
+    });
+
+    // Remove any order elements that no longer exist
+    Array.from(ordersContainer.children).forEach(child => {
+        if (!existingOrderElements.has(child.id)) {
+            ordersContainer.removeChild(child);
+        }
+    });
+}
+
 function placeOrder() {
     if (!window.tableId || cart.length === 0) {
         alert('Please add items to your cart before placing an order.');
@@ -171,7 +258,8 @@ function placeOrder() {
         items: cart,
         total: total,
         status: 'pending',
-        orderTime: new Date().toLocaleTimeString()
+        orderTime: new Date().toLocaleString(),
+        timestamp: Date.now() // Add timestamp for sorting
     };
 
     // Add order to Firebase
@@ -179,71 +267,11 @@ function placeOrder() {
         .then(() => {
             clearCart();
             alert('Order placed successfully!');
+            // Switch to orders tab
+            document.querySelector('[data-tab="orders"]').click();
         })
         .catch(error => {
             console.error('Error placing order:', error);
             alert('Error placing order. Please try again.');
         });
-}
-
-function loadOrders() {
-    const ordersContainer = document.getElementById('orders-container');
-    if (!window.tableId || !ordersContainer) return;
-
-    // Listen for changes in orders
-    database.ref('orders')
-        .orderByChild('tableId')
-        .equalTo(window.tableId)
-        .on('child_added', function(snapshot) {
-            const order = {
-                id: snapshot.key,
-                ...snapshot.val()
-            };
-            addOrUpdateOrder(order);
-        });
-
-    // Listen for order updates
-    database.ref('orders')
-        .orderByChild('tableId')
-        .equalTo(window.tableId)
-        .on('child_changed', function(snapshot) {
-            const order = {
-                id: snapshot.key,
-                ...snapshot.val()
-            };
-            addOrUpdateOrder(order);
-        });
-}
-
-function addOrUpdateOrder(order) {
-    const ordersContainer = document.getElementById('orders-container');
-    if (!ordersContainer) return;
-
-    let orderElement = document.getElementById(`order-${order.id}`);
-    
-    if (!orderElement) {
-        // Create new order element
-        orderElement = document.createElement('div');
-        orderElement.id = `order-${order.id}`;
-        orderElement.className = 'order-card previous';
-        ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
-    }
-
-    // Update the order content
-    const items = order.items.map(item => 
-        `<div class="order-item">
-            <span>${item.name}</span>
-            <span>$${item.price.toFixed(2)}</span>
-        </div>`
-    ).join('');
-
-    orderElement.innerHTML = `
-        <div class="order-header">
-            <span class="order-id">Order #${order.id.slice(-4)}</span>
-            <span class="order-status ${order.status}">${order.status}</span>
-        </div>
-        <div class="order-items">${items}</div>
-        <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-        <div class="order-time">Ordered at: ${order.orderTime}</div>
-    `;
 }
