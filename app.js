@@ -164,73 +164,54 @@ function loadOrders() {
     const ordersContainer = document.getElementById('orders-container');
     if (!window.tableId || !ordersContainer) return;
 
-    // Clear any existing listeners
-    database.ref('orders').off();
-
     // Create a query for this table's orders
-    const query = database.ref('orders').orderByChild('tableId').equalTo(window.tableId);
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(window.tableId)
+        .on('value', function(snapshot) {
+            const orders = [];
+            
+            snapshot.forEach(childSnapshot => {
+                const order = childSnapshot.val();
+                // Only include non-history orders
+                if (order.status !== 'completed') {
+                    orders.push({
+                        id: childSnapshot.key,
+                        ...order
+                    });
+                }
+            });
 
-    // Listen for all existing and new orders
-    query.on('value', function(snapshot) {
-        if (!snapshot.exists()) {
-            ordersContainer.innerHTML = '<p>No orders yet</p>';
-            return;
-        }
-
-        // Get all orders and sort them by time (newest first)
-        const orders = [];
-        snapshot.forEach((childSnapshot) => {
-            const order = childSnapshot.val();
-            // Only show orders that are not in history
-            if (!order.isHistory) {
-                orders.push({
-                    id: childSnapshot.key,
-                    ...order
-                });
+            if (orders.length === 0) {
+                ordersContainer.innerHTML = '<p>No active orders</p>';
+                return;
             }
+
+            // Sort by timestamp, newest first
+            orders.sort((a, b) => b.timestamp - a.timestamp);
+            updateOrdersUI(orders);
         });
-
-        if (orders.length === 0) {
-            ordersContainer.innerHTML = '<p>No active orders</p>';
-            return;
-        }
-
-        // Sort orders by timestamp (newest first)
-        orders.sort((a, b) => b.timestamp - a.timestamp);
-
-        // Update the UI
-        updateOrdersUI(orders);
-    });
 }
 
 function updateOrdersUI(orders) {
     const ordersContainer = document.getElementById('orders-container');
-    if (!ordersContainer) return;
-
-    // Keep track of existing order elements
-    const existingOrderElements = new Set();
+    
+    // Clear existing orders
+    ordersContainer.innerHTML = '';
+    
+    // Display each order
     orders.forEach(order => {
-        const orderId = `order-${order.id}`;
-        existingOrderElements.add(orderId);
-
-        let orderElement = document.getElementById(orderId);
+        const orderElement = document.createElement('div');
+        orderElement.className = 'order-card';
+        orderElement.id = `order-${order.id}`;
         
-        if (!orderElement) {
-            // Create new order element if it doesn't exist
-            orderElement = document.createElement('div');
-            orderElement.id = orderId;
-            orderElement.className = 'order-card';
-            ordersContainer.appendChild(orderElement);
-        }
-
-        // Update the order content
-        const items = order.items.map(item => 
-            `<div class="order-item">
+        const items = order.items.map(item => `
+            <div class="order-item">
                 <span>${item.name}</span>
                 <span>$${item.price.toFixed(2)}</span>
-            </div>`
-        ).join('');
-
+            </div>
+        `).join('');
+        
         orderElement.innerHTML = `
             <div class="order-header">
                 <span class="order-id">Order #${order.id.slice(-4)}</span>
@@ -240,17 +221,8 @@ function updateOrdersUI(orders) {
             <div class="order-total">Total: $${order.total.toFixed(2)}</div>
             <div class="order-time">Ordered at: ${order.orderTime}</div>
         `;
-
-        // Add appropriate status class
-        orderElement.classList.remove('pending', 'preparing', 'ready', 'delivered');
-        orderElement.classList.add(order.status);
-    });
-
-    // Remove any order elements that no longer exist
-    Array.from(ordersContainer.children).forEach(child => {
-        if (!existingOrderElements.has(child.id)) {
-            ordersContainer.removeChild(child);
-        }
+        
+        ordersContainer.appendChild(orderElement);
     });
 }
 
@@ -274,7 +246,6 @@ function placeOrder() {
         .then(() => {
             clearCart();
             alert('Order placed successfully!');
-            // Switch to orders tab
             document.querySelector('[data-tab="orders"]').click();
         })
         .catch(error => {

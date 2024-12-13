@@ -159,16 +159,6 @@ function moveToHistory(id) {
         });
 }
 
-// Toggle select all orders
-function toggleSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    const orderCheckboxes = document.querySelectorAll('.order-select');
-    
-    orderCheckboxes.forEach(checkbox => {
-        checkbox.checked = selectAllCheckbox.checked;
-    });
-}
-
 // Move selected orders to history
 function moveSelectedToHistory() {
     const selectedOrders = document.querySelectorAll('.order-select:checked');
@@ -188,8 +178,7 @@ function moveSelectedToHistory() {
         
         return database.ref(`orders/${orderId}`).update({
             status: 'completed',
-            completedAt: Date.now(),
-            isHistory: true
+            completedAt: Date.now()
         }).then(() => {
             // Remove from active orders view
             if (orderCard) {
@@ -216,51 +205,32 @@ function moveSelectedToHistory() {
     });
 }
 
-// Update select all checkbox state
-function updateSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all-orders');
-    const orderCheckboxes = document.querySelectorAll('.order-select');
-    const checkedCheckboxes = document.querySelectorAll('.order-select:checked');
-    
-    if (orderCheckboxes.length === 0) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.disabled = true;
-    } else {
-        selectAllCheckbox.disabled = false;
-        selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
-    }
-}
-
 // Load history orders
 function loadHistoryOrders() {
-    console.log('Loading history orders...'); // Debug log
     const historyContainer = document.querySelector('.history-container');
     const selectedDate = document.getElementById('history-date').value;
     
     // Clear existing content
-    historyContainer.innerHTML = '';
+    historyContainer.innerHTML = '<p>Loading history...</p>';
     
     database.ref('orders')
         .orderByChild('status')
         .equalTo('completed')
         .once('value')
         .then(snapshot => {
-            console.log('Got history data:', snapshot.val()); // Debug log
             let ordersByDate = {};
             
             // Group orders by date
             snapshot.forEach(childSnapshot => {
                 const order = childSnapshot.val();
-                if (order.isHistory) {
-                    const date = new Date(order.completedAt).toLocaleDateString();
-                    if (!ordersByDate[date]) {
-                        ordersByDate[date] = [];
-                    }
-                    ordersByDate[date].push({
-                        id: childSnapshot.key,
-                        ...order
-                    });
+                const date = new Date(order.completedAt).toLocaleDateString();
+                if (!ordersByDate[date]) {
+                    ordersByDate[date] = [];
                 }
+                ordersByDate[date].push({
+                    id: childSnapshot.key,
+                    ...order
+                });
             });
             
             // If no orders found
@@ -281,6 +251,9 @@ function loadHistoryOrders() {
                     return;
                 }
             }
+            
+            // Clear loading message
+            historyContainer.innerHTML = '';
             
             // Create date groups
             Object.entries(ordersByDate)
@@ -326,9 +299,29 @@ function loadHistoryOrders() {
         });
 }
 
-// Filter history by date
-function filterHistoryByDate(date) {
-    loadHistoryOrders();
+// Toggle select all orders
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    const orderCheckboxes = document.querySelectorAll('.order-select');
+    
+    orderCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+// Update select all checkbox state
+function updateSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    const orderCheckboxes = document.querySelectorAll('.order-select');
+    const checkedCheckboxes = document.querySelectorAll('.order-select:checked');
+    
+    if (orderCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.disabled = true;
+    } else {
+        selectAllCheckbox.disabled = false;
+        selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
+    }
 }
 
 // Initialize listeners
