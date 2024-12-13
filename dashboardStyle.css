@@ -71,6 +71,7 @@ header h1 {
     margin-bottom: 15px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     border: 1px solid #eee;
+    transition: opacity 0.3s ease-out;
 }
 
 .order-header {
@@ -216,7 +217,9 @@ header h1 {
     background: white;
     border-radius: 8px;
     overflow: hidden;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
@@ -296,6 +299,7 @@ header h1 {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    transition: opacity 0.3s ease-out;
 }
 
 .history-date-group {
@@ -328,4 +332,21 @@ header h1 {
     padding: 5px 10px;
     border-radius: 4px;
     font-size: 12px;
+}
+
+/* Add transitions for smooth animations */
+.loading-message,
+.no-orders-message,
+.error-message {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.loading-message {
+    font-style: italic;
+}
+
+.error-message {
+    color: #dc3545;
 }
