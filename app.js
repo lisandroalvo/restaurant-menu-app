@@ -164,27 +164,21 @@ function loadOrders() {
     const ordersContainer = document.getElementById('orders-container');
     if (!window.tableId || !ordersContainer) return;
 
+    // Create a query for this table's orders
     database.ref('orders')
         .orderByChild('tableId')
         .equalTo(window.tableId)
         .on('value', function(snapshot) {
-            // Clear container
-            ordersContainer.innerHTML = '';
-            
-            if (!snapshot.exists()) {
-                ordersContainer.innerHTML = '<p>No orders yet</p>';
-                return;
-            }
-
             const orders = [];
+            
             snapshot.forEach(childSnapshot => {
-                const order = {
-                    id: childSnapshot.key,
-                    ...childSnapshot.val()
-                };
-                // Only show orders that are not in history
+                const order = childSnapshot.val();
+                // Only include non-history orders
                 if (order.status !== 'completed') {
-                    orders.push(order);
+                    orders.push({
+                        id: childSnapshot.key,
+                        ...order
+                    });
                 }
             });
 
@@ -195,33 +189,41 @@ function loadOrders() {
 
             // Sort by timestamp, newest first
             orders.sort((a, b) => b.timestamp - a.timestamp);
-
-            // Create order elements
-            orders.forEach(order => {
-                const orderElement = document.createElement('div');
-                orderElement.className = 'order-card';
-                orderElement.id = `order-${order.id}`;
-
-                const items = order.items.map(item => `
-                    <div class="order-item">
-                        <span>${item.name}</span>
-                        <span>$${item.price.toFixed(2)}</span>
-                    </div>
-                `).join('');
-
-                orderElement.innerHTML = `
-                    <div class="order-header">
-                        <span class="order-id">Order #${order.id.slice(-4)}</span>
-                        <span class="order-status ${order.status}">${order.status}</span>
-                    </div>
-                    <div class="order-items">${items}</div>
-                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                    <div class="order-time">Ordered at: ${order.orderTime}</div>
-                `;
-
-                ordersContainer.appendChild(orderElement);
-            });
+            updateOrdersUI(orders);
         });
+}
+
+function updateOrdersUI(orders) {
+    const ordersContainer = document.getElementById('orders-container');
+    
+    // Clear existing orders
+    ordersContainer.innerHTML = '';
+    
+    // Display each order
+    orders.forEach(order => {
+        const orderElement = document.createElement('div');
+        orderElement.className = 'order-card';
+        orderElement.id = `order-${order.id}`;
+        
+        const items = order.items.map(item => `
+            <div class="order-item">
+                <span>${item.name}</span>
+                <span>$${item.price.toFixed(2)}</span>
+            </div>
+        `).join('');
+        
+        orderElement.innerHTML = `
+            <div class="order-header">
+                <span class="order-id">Order #${order.id.slice(-4)}</span>
+                <span class="order-status ${order.status}">${order.status}</span>
+            </div>
+            <div class="order-items">${items}</div>
+            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+            <div class="order-time">Ordered at: ${order.orderTime}</div>
+        `;
+        
+        ordersContainer.appendChild(orderElement);
+    });
 }
 
 function placeOrder() {
@@ -239,6 +241,7 @@ function placeOrder() {
         orderTime: new Date().toLocaleString()
     };
 
+    // Add order to Firebase
     database.ref('orders').push(order)
         .then(() => {
             clearCart();
