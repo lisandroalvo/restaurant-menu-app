@@ -1034,3 +1034,78 @@ audio {
     text-align: right;
     margin-top: 5px;
 }
+
+/* Previous Orders Styling */
+.order-card {
+    background-color: white;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: opacity 0.3s ease;
+}
+
+.order-card.previous {
+    background-color: #f8f9fa;
+    opacity: 0.8;
+    border-left: 4px solid #6c757d;
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.order-time {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-top: 8px;
+}
+
+.order-total {
+    font-weight: bold;
+    color: #28a745;
+    font-size: 1.1em;
+    margin-top: 10px;
+    text-align: right;
+}
+
+.previous .order-total {
+    color: #6c757d;
+}
+
+.order-items {
+    margin: 10px 0;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    color: #495057;
+}
+
+.previous .order-item {
+    color: #6c757d;
+}
+
+.order-summary {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 2px solid #dee2e6;
+}
+
+.total-spent {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #dc3545;
+    text-align: right;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin-top: 20px;
+}

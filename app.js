@@ -203,10 +203,26 @@ function loadOrders() {
                 return;
             }
 
+            let totalSpent = 0;
+            const orders = [];
+
+            // Collect all orders first
             snapshot.forEach(function(childSnapshot) {
-                const order = childSnapshot.val();
+                orders.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val(),
+                    timestamp: new Date(childSnapshot.val().orderTime).getTime()
+                });
+                totalSpent += childSnapshot.val().total;
+            });
+
+            // Sort orders by timestamp, most recent first
+            orders.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Display orders
+            orders.forEach(function(order, index) {
                 const orderElement = document.createElement('div');
-                orderElement.className = 'order-card';
+                orderElement.className = `order-card ${index > 0 ? 'previous' : ''}`;
                 
                 const items = order.items.map(item => 
                     `<div class="order-item">
@@ -217,7 +233,7 @@ function loadOrders() {
 
                 orderElement.innerHTML = `
                     <div class="order-header">
-                        <span class="order-id">Order #${childSnapshot.key.slice(-4)}</span>
+                        <span class="order-id">Order #${order.id.slice(-4)}</span>
                         <span class="order-status ${order.status}">${order.status}</span>
                     </div>
                     <div class="order-items">${items}</div>
@@ -227,5 +243,17 @@ function loadOrders() {
                 
                 ordersContainer.appendChild(orderElement);
             });
+
+            // Add total spent summary
+            if (orders.length > 0) {
+                const summaryElement = document.createElement('div');
+                summaryElement.className = 'order-summary';
+                summaryElement.innerHTML = `
+                    <div class="total-spent">
+                        Total Spent: $${totalSpent.toFixed(2)}
+                    </div>
+                `;
+                ordersContainer.appendChild(summaryElement);
+            }
         });
 }
