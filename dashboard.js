@@ -45,7 +45,7 @@ function playNotification() {
 
 // Display active order
 function displayActiveOrder(orderId, orderData) {
-    if (orderData.isHistory) return; // Don't display history orders in active orders
+    if (orderData.isHistory || orderData.visible === false) return; // Don't display history or hidden orders
     
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
@@ -53,7 +53,7 @@ function displayActiveOrder(orderId, orderData) {
 
     orderElement.innerHTML = `
         <div class="order-header">
-            <input type="checkbox" class="order-select" data-order-id="${orderId}">
+            <input type="checkbox" class="order-select" data-order-id="${orderId}" onchange="updateSelectAll()">
             <span class="table-number">Table ${orderData.tableId}</span>
             <span class="status-badge status-${orderData.status}">${orderData.status}</span>
         </div>
@@ -74,6 +74,7 @@ function displayActiveOrder(orderId, orderData) {
     `;
 
     document.querySelector('#active-orders .orders-container').appendChild(orderElement);
+    updateSelectAll();
 }
 
 // Display bill request
@@ -158,12 +159,26 @@ function moveToHistory(id) {
         });
 }
 
+// Toggle select all orders
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    const orderCheckboxes = document.querySelectorAll('.order-select');
+    
+    orderCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
 // Move selected orders to history
 function moveSelectedToHistory() {
     const selectedOrders = document.querySelectorAll('.order-select:checked');
     
     if (selectedOrders.length === 0) {
         alert('Please select orders to move to history');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to move ${selectedOrders.length} order(s) to history?`)) {
         return;
     }
 
@@ -174,7 +189,8 @@ function moveSelectedToHistory() {
         return database.ref(`orders/${orderId}`).update({
             status: 'completed',
             completedAt: Date.now(),
-            isHistory: true
+            isHistory: true,
+            visible: false // This will hide it from user's view
         }).then(() => {
             // Remove from active orders view
             if (orderCard) {
@@ -184,12 +200,36 @@ function moveSelectedToHistory() {
     });
 
     Promise.all(promises).then(() => {
+        // Uncheck select all checkbox
+        const selectAllCheckbox = document.getElementById('select-all-orders');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+        
         // Switch to history tab and refresh
         switchTab('order-history');
+        
+        // Show success message
+        alert('Orders successfully moved to history');
     }).catch(error => {
         console.error('Error moving orders to history:', error);
         alert('Error moving orders to history. Please try again.');
     });
+}
+
+// Update select all checkbox state
+function updateSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    const orderCheckboxes = document.querySelectorAll('.order-select');
+    const checkedCheckboxes = document.querySelectorAll('.order-select:checked');
+    
+    if (orderCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.disabled = true;
+    } else {
+        selectAllCheckbox.disabled = false;
+        selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
+    }
 }
 
 // Load history orders

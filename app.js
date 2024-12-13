@@ -180,11 +180,20 @@ function loadOrders() {
         // Get all orders and sort them by time (newest first)
         const orders = [];
         snapshot.forEach((childSnapshot) => {
-            orders.push({
-                id: childSnapshot.key,
-                ...childSnapshot.val()
-            });
+            const order = childSnapshot.val();
+            // Only include visible orders
+            if (!order.isHistory && order.visible !== false) {
+                orders.push({
+                    id: childSnapshot.key,
+                    ...order
+                });
+            }
         });
+
+        if (orders.length === 0) {
+            ordersContainer.innerHTML = '<p>No active orders</p>';
+            return;
+        }
 
         // Sort orders by timestamp (newest first)
         orders.sort((a, b) => {
