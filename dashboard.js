@@ -210,6 +210,50 @@ function moveSelectedToHistory() {
     switchTab('order-history');
 }
 
+// Export orders to Excel
+function exportOrdersToExcel(dateKey, orders) {
+    // Prepare data for export
+    const exportData = orders.map(order => ({
+        'Table': order.tableId,
+        'Order Time': order.orderTime || 'Unknown',
+        'Completion Time': order.completedAt ? new Date(order.completedAt).toLocaleString() : 'Unknown',
+        'Items': (order.items || []).map(item => `${item.quantity}x ${item.name}`).join(', '),
+        'Total': `$${(order.total || 0).toFixed(2)}`
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+
+    // Generate Excel file
+    XLSX.writeFile(wb, `orders_${dateKey.replace(/\//g, '-')}.xlsx`);
+}
+
+// Delete orders for a specific date
+function deleteOrdersByDate(dateKey, orders) {
+    if (!confirm(`Are you sure you want to delete all orders from ${dateKey}? This action cannot be undone.`)) {
+        return;
+    }
+
+    const updates = {};
+    orders.forEach(order => {
+        updates[`orders/${order.id}`] = null;
+    });
+
+    database.ref().update(updates)
+        .then(() => {
+            console.log(`Successfully deleted orders from ${dateKey}`);
+            loadHistoryOrders(); // Refresh the display
+        })
+        .catch(error => {
+            console.error('Error deleting orders:', error);
+            alert('Error deleting orders. Please try again.');
+        });
+}
+
 // Load history orders
 function loadHistoryOrders() {
     console.log('Loading history orders...');
@@ -262,12 +306,25 @@ function loadHistoryOrders() {
                 const dateFolder = document.createElement('div');
                 dateFolder.className = 'date-folder';
                 
-                // Create folder header
+                // Create folder header with actions
                 const header = document.createElement('div');
                 header.className = 'date-folder-header';
                 header.innerHTML = `
-                    <span>${dateKey}</span>
-                    <span class="order-count">${dateOrders.length} orders</span>
+                    <div class="folder-info">
+                        <i class="fas fa-folder"></i>
+                        <span>${dateKey}</span>
+                        <span class="order-count">${dateOrders.length} orders</span>
+                    </div>
+                    <div class="folder-actions">
+                        <button class="export-btn" title="Export to Excel">
+                            <i class="fas fa-file-excel"></i>
+                            Export
+                        </button>
+                        <button class="delete-btn" title="Delete all orders from this date">
+                            <i class="fas fa-trash"></i>
+                            Delete
+                        </button>
+                    </div>
                 `;
                 
                 // Create folder content
@@ -279,7 +336,6 @@ function loadHistoryOrders() {
                     const orderElement = document.createElement('div');
                     orderElement.className = 'order-card history-order';
                     
-                    // Add null checks for items and total
                     const items = order.items || [];
                     const total = order.total || 0;
                     
@@ -309,9 +365,22 @@ function loadHistoryOrders() {
                     content.appendChild(orderElement);
                 });
                 
-                // Add click handler to toggle folder
-                header.addEventListener('click', () => {
+                // Add click handlers
+                const folderInfo = header.querySelector('.folder-info');
+                folderInfo.addEventListener('click', () => {
                     dateFolder.classList.toggle('open');
+                });
+
+                const exportBtn = header.querySelector('.export-btn');
+                exportBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    exportOrdersToExcel(dateKey, dateOrders);
+                });
+
+                const deleteBtn = header.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteOrdersByDate(dateKey, dateOrders);
                 });
                 
                 // Assemble folder
