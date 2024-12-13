@@ -19,6 +19,8 @@ const audio = new Audio('notification.mp3');
 
 // Switch tabs
 function switchTab(tabId) {
+    console.log(`Switching to tab: ${tabId}`);
+    
     // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
@@ -28,11 +30,20 @@ function switchTab(tabId) {
     });
 
     // Show selected tab
-    document.getElementById(tabId).classList.add('active');
-    document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+    const selectedTab = document.getElementById(tabId);
+    const selectedBtn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
     
-    if (tabId === 'order-history') {
-        loadHistoryOrders();
+    if (selectedTab && selectedBtn) {
+        selectedTab.classList.add('active');
+        selectedBtn.classList.add('active');
+        
+        // Load history orders when switching to history tab
+        if (tabId === 'order-history') {
+            console.log('Loading history orders...');
+            loadHistoryOrders();
+        }
+    } else {
+        console.error('Tab or button not found:', tabId);
     }
 }
 
@@ -172,9 +183,13 @@ function moveSelectedToHistory() {
         return;
     }
 
+    console.log(`Moving ${selectedOrders.length} orders to history...`);
+    
     const promises = Array.from(selectedOrders).map(checkbox => {
         const orderId = checkbox.getAttribute('data-order-id');
         const orderCard = document.getElementById(`order-${orderId}`);
+        
+        console.log(`Processing order ${orderId}...`);
         
         // First get the current order data
         return database.ref(`orders/${orderId}`).once('value')
@@ -183,25 +198,39 @@ function moveSelectedToHistory() {
                 if (!orderData) {
                     throw new Error(`Order ${orderId} not found`);
                 }
+                
+                console.log('Current order data:', orderData);
 
                 // Update the order with completed status and timestamps
-                return database.ref(`orders/${orderId}`).update({
+                const updates = {
                     status: 'completed',
                     completedAt: Date.now(),
-                    orderTime: orderData.orderTime || new Date().toLocaleString() // Preserve or set order time
-                });
+                    orderTime: orderData.orderTime || new Date().toLocaleString()
+                };
+                
+                console.log('Updating order with:', updates);
+                return database.ref(`orders/${orderId}`).update(updates);
             })
             .then(() => {
+                console.log(`Successfully updated order ${orderId}`);
                 // Remove from active orders view with animation
                 if (orderCard) {
                     orderCard.style.opacity = '0';
-                    setTimeout(() => orderCard.remove(), 300);
+                    setTimeout(() => {
+                        orderCard.remove();
+                        console.log(`Removed order card ${orderId} from view`);
+                    }, 300);
                 }
+            })
+            .catch(error => {
+                console.error(`Error processing order ${orderId}:`, error);
+                throw error; // Re-throw to be caught by the main catch block
             });
     });
 
     Promise.all(promises)
         .then(() => {
+            console.log('All orders processed successfully');
             // Uncheck select all checkbox
             const selectAllCheckbox = document.getElementById('select-all-orders');
             if (selectAllCheckbox) {
@@ -231,17 +260,25 @@ function loadHistoryOrders() {
         historyContainer.innerHTML = '<p class="loading-message">Loading history...</p>';
         historyContainer.style.opacity = '1';
         
+        // Add console logs for debugging
+        console.log('Loading history orders...');
+        
         database.ref('orders')
             .orderByChild('status')
             .equalTo('completed')
             .once('value')
             .then(snapshot => {
+                console.log('Received snapshot:', snapshot.val());
                 let ordersByDate = {};
                 
                 // Group orders by date
                 snapshot.forEach(childSnapshot => {
                     const order = childSnapshot.val();
-                    const orderDate = order.completedAt ? new Date(order.completedAt) : new Date();
+                    console.log('Processing order:', order);
+                    
+                    // Ensure we have a valid completedAt timestamp
+                    const completedAt = order.completedAt || Date.now();
+                    const orderDate = new Date(completedAt);
                     const date = orderDate.toLocaleDateString();
                     
                     if (!ordersByDate[date]) {
@@ -249,9 +286,12 @@ function loadHistoryOrders() {
                     }
                     ordersByDate[date].push({
                         id: childSnapshot.key,
-                        ...order
+                        ...order,
+                        completedAt: completedAt // Ensure completedAt is set
                     });
                 });
+                
+                console.log('Orders by date:', ordersByDate);
                 
                 // If no orders found
                 if (Object.keys(ordersByDate).length === 0) {
@@ -281,6 +321,7 @@ function loadHistoryOrders() {
                     Object.entries(ordersByDate)
                         .sort((a, b) => new Date(b[0]) - new Date(a[0]))
                         .forEach(([date, orders]) => {
+                            console.log(`Creating group for date ${date} with ${orders.length} orders`);
                             const dateGroup = document.createElement('div');
                             dateGroup.className = 'history-date-group';
                             
@@ -325,7 +366,6 @@ function loadHistoryOrders() {
                 console.error('Error loading history:', error);
                 historyContainer.innerHTML = '<p class="error-message">Error loading history orders. Please try again.</p>';
             });
-    }, 300);
 }
 
 // Toggle select all orders
