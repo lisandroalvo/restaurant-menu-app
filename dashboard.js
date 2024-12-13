@@ -87,12 +87,15 @@ function displayBillRequest(requestId, requestData) {
     billElement.className = 'bill-request-card';
     billElement.id = `bill-${requestId}`;
 
+    // Add null check for total
+    const total = requestData.total || 0;
+
     billElement.innerHTML = `
         <div class="bill-header">
             <span class="table-number">Table ${requestData.tableId}</span>
             <span class="timestamp">${new Date(requestData.timestamp).toLocaleString()}</span>
         </div>
-        <div class="bill-total">Total: $${requestData.total.toFixed(2)}</div>
+        <div class="bill-total">Total: $${total.toFixed(2)}</div>
         <div class="bill-actions">
             <button onclick="processBill('${requestId}')">Process Bill</button>
             <button onclick="moveToHistory('${requestId}')">Complete Order</button>
@@ -247,23 +250,30 @@ function loadHistoryOrders() {
                 const orderElement = document.createElement('div');
                 orderElement.className = 'order-card history-order';
                 
+                // Add null checks for items and total
+                const items = order.items || [];
+                const total = order.total || 0;
+                
                 orderElement.innerHTML = `
                     <div class="order-header">
                         <span class="table-number">Table ${order.tableId}</span>
                         <span class="status-badge status-completed">Completed</span>
                     </div>
                     <div class="order-items">
-                        ${order.items.map(item => `
-                            <div class="order-item">
-                                <span>${item.quantity}x ${item.name}</span>
-                                <span>$${item.price.toFixed(2)}</span>
-                            </div>
-                        `).join('')}
+                        ${items.map(item => {
+                            const itemPrice = item.price || 0;
+                            return `
+                                <div class="order-item">
+                                    <span>${item.quantity}x ${item.name}</span>
+                                    <span>$${itemPrice.toFixed(2)}</span>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
-                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                    <div class="order-total">Total: $${total.toFixed(2)}</div>
                     <div class="order-time">
-                        Ordered: ${order.orderTime}<br>
-                        Completed: ${new Date(order.completedAt).toLocaleString()}
+                        Ordered: ${order.orderTime || 'Unknown'}<br>
+                        Completed: ${order.completedAt ? new Date(order.completedAt).toLocaleString() : 'Unknown'}
                     </div>
                 `;
                 
