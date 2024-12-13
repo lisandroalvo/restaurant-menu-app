@@ -30,6 +30,10 @@ function switchTab(tabId) {
     // Show selected tab
     document.getElementById(tabId).classList.add('active');
     document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+    
+    if (tabId === 'order-history') {
+        loadHistoryOrders();
+    }
 }
 
 // Play notification
@@ -41,12 +45,15 @@ function playNotification() {
 
 // Display active order
 function displayActiveOrder(orderId, orderData) {
+    if (orderData.isHistory) return; // Don't display history orders in active orders
+    
     const orderElement = document.createElement('div');
     orderElement.className = 'order-card';
     orderElement.id = `order-${orderId}`;
 
     orderElement.innerHTML = `
         <div class="order-header">
+            <input type="checkbox" class="order-select" data-order-id="${orderId}">
             <span class="table-number">Table ${orderData.tableId}</span>
             <span class="status-badge status-${orderData.status}">${orderData.status}</span>
         </div>
@@ -151,6 +158,103 @@ function moveToHistory(id) {
         });
 }
 
+// Move selected orders to history
+function moveSelectedToHistory() {
+    const selectedOrders = document.querySelectorAll('.order-select:checked');
+    
+    selectedOrders.forEach(checkbox => {
+        const orderId = checkbox.getAttribute('data-order-id');
+        database.ref(`orders/${orderId}`).update({
+            status: 'completed',
+            completedAt: Date.now(),
+            isHistory: true
+        });
+    });
+}
+
+// Load history orders
+function loadHistoryOrders() {
+    const historyContainer = document.querySelector('.history-container');
+    const selectedDate = document.getElementById('history-date').value;
+    
+    // Clear existing content
+    historyContainer.innerHTML = '';
+    
+    database.ref('orders')
+        .orderByChild('completedAt')
+        .once('value')
+        .then(snapshot => {
+            const ordersByDate = {};
+            
+            // Group orders by date
+            snapshot.forEach(childSnapshot => {
+                const order = childSnapshot.val();
+                if (order.isHistory) {
+                    const date = new Date(order.completedAt).toLocaleDateString();
+                    if (!ordersByDate[date]) {
+                        ordersByDate[date] = [];
+                    }
+                    ordersByDate[date].push({
+                        id: childSnapshot.key,
+                        ...order
+                    });
+                }
+            });
+            
+            // Filter by selected date if any
+            if (selectedDate) {
+                const formattedDate = new Date(selectedDate).toLocaleDateString();
+                const filteredOrders = {};
+                if (ordersByDate[formattedDate]) {
+                    filteredOrders[formattedDate] = ordersByDate[formattedDate];
+                }
+                ordersByDate = filteredOrders;
+            }
+            
+            // Create date groups
+            Object.entries(ordersByDate)
+                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                .forEach(([date, orders]) => {
+                    const dateGroup = document.createElement('div');
+                    dateGroup.className = 'history-date-group';
+                    
+                    dateGroup.innerHTML = `
+                        <div class="history-date-header">${date}</div>
+                        <div class="history-orders">
+                            ${orders.map(order => `
+                                <div class="order-card">
+                                    <div class="order-header">
+                                        <span class="order-id">Order #${order.id.slice(-4)}</span>
+                                        <span class="table-number">Table ${order.tableId}</span>
+                                    </div>
+                                    <div class="order-items">
+                                        ${order.items.map(item => `
+                                            <div class="order-item">
+                                                <span>${item.name}</span>
+                                                <span>$${item.price.toFixed(2)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                                    <div class="order-time">
+                                        Ordered: ${new Date(order.orderTime).toLocaleString()}<br>
+                                        Completed: ${new Date(order.completedAt).toLocaleString()}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    historyContainer.appendChild(dateGroup);
+                });
+        });
+}
+
+// Filter history by date
+function filterHistoryByDate(date) {
+    loadHistoryOrders();
+}
+
 // Initialize listeners
 function initializeListeners() {
     // Listen for new orders
@@ -192,6 +296,15 @@ function initializeListeners() {
         const historyData = snapshot.val();
         displayHistoryItem(historyId, historyData);
     });
+    
+    // Set default date filter to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('history-date').value = today;
+    
+    // Load initial data
+    if (document.querySelector('.tab-content.active').id === 'order-history') {
+        loadHistoryOrders();
+    }
 }
 
 // Initialize on load

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurant Dashboard</title>
-    <link rel="stylesheet" href="Style.css">
+    <link rel="stylesheet" href="dashboardStyle.css">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -32,7 +32,16 @@
 
     <div id="order-history" class="tab-content">
         <h2>Order History</h2>
-        <div class="history-container"></div>
+        <div class="history-controls">
+            <div class="date-filter">
+                <label for="history-date">Filter by date:</label>
+                <input type="date" id="history-date" onchange="filterHistoryByDate(this.value)">
+            </div>
+            <button onclick="moveSelectedToHistory()" class="move-to-history-btn">Move Selected to History</button>
+        </div>
+        <div class="history-container">
+            <!-- History items will be grouped by date -->
+        </div>
     </div>
 
     <audio id="notification-sound" src="notification.mp3" preload="auto"></audio>
