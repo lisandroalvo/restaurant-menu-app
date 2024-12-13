@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurant Dashboard</title>
     <link rel="stylesheet" href="dashboardStyle.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <header>
@@ -16,7 +20,6 @@
 
     <div class="dashboard-tabs">
         <button class="tab-btn active" onclick="switchTab('active-orders')">Active Orders</button>
-        <button class="tab-btn" onclick="switchTab('bill-requests')">Bill Requests</button>
         <button class="tab-btn" onclick="switchTab('order-history')">Order History</button>
     </div>
 
@@ -32,25 +35,13 @@
         <div class="orders-container"></div>
     </div>
 
-    <div id="bill-requests" class="tab-content">
-        <h2>Bill Requests</h2>
-        <div class="bill-requests-container"></div>
-    </div>
-
     <div id="order-history" class="tab-content">
         <h2>Order History</h2>
-        <div class="history-controls">
-            <div class="date-filter">
-                <label for="history-date">Filter by date:</label>
-                <input type="date" id="history-date">
-            </div>
-        </div>
         <div class="history-container">
-            <!-- History items will be grouped by date -->
+            <!-- History orders will be displayed here -->
         </div>
     </div>
 
-    <audio id="notification-sound" src="notification.mp3" preload="auto"></audio>
     <script src="dashboard.js"></script>
 </body>
 </html>

@@ -210,26 +210,56 @@ function moveSelectedToHistory() {
     switchTab('order-history');
 }
 
-// Export orders to Excel
+/// Export orders to Excel
 function exportOrdersToExcel(dateKey, orders) {
-    // Prepare data for export
-    const exportData = orders.map(order => ({
-        'Table': order.tableId,
-        'Order Time': order.orderTime || 'Unknown',
-        'Completion Time': order.completedAt ? new Date(order.completedAt).toLocaleString() : 'Unknown',
-        'Items': (order.items || []).map(item => `${item.quantity}x ${item.name}`).join(', '),
-        'Total': `$${(order.total || 0).toFixed(2)}`
-    }));
+    try {
+        // Check if XLSX is available
+        if (typeof XLSX === 'undefined') {
+            throw new Error('Excel export library not loaded. Please refresh the page and try again.');
+        }
 
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(exportData);
+        // Prepare data for export
+        const exportData = orders.map(order => {
+            // Format items list
+            const itemsList = (order.items || [])
+                .map(item => `${item.quantity}x ${item.name} ($${(item.price || 0).toFixed(2)})`)
+                .join('\n');
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+            return {
+                'Table': order.tableId,
+                'Order Time': order.orderTime || 'Unknown',
+                'Completion Time': order.completedAt ? new Date(order.completedAt).toLocaleString() : 'Unknown',
+                'Items': itemsList,
+                'Total': `$${(order.total || 0).toFixed(2)}`
+            };
+        });
 
-    // Generate Excel file
-    XLSX.writeFile(wb, `orders_${dateKey.replace(/\//g, '-')}.xlsx`);
+        // Set column widths
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const columnWidths = [
+            { wch: 10 },  // Table
+            { wch: 20 },  // Order Time
+            { wch: 20 },  // Completion Time
+            { wch: 50 },  // Items
+            { wch: 15 }   // Total
+        ];
+        worksheet['!cols'] = columnWidths;
+
+        // Create workbook and add the worksheet
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+
+        // Generate filename with date
+        const filename = `orders_${dateKey.replace(/\//g, '-')}.xlsx`;
+
+        // Save the file
+        XLSX.writeFile(workbook, filename);
+
+        console.log(`Successfully exported orders for ${dateKey}`);
+    } catch (error) {
+        console.error('Error exporting to Excel:', error);
+        alert('Error exporting to Excel: ' + error.message);
+    }
 }
 
 // Delete orders for a specific date
