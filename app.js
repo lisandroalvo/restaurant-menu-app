@@ -177,9 +177,37 @@ function placeOrder() {
     // Add order to Firebase
     database.ref('orders').push(order)
         .then(() => {
-            alert('Order placed successfully!');
+            // Create and display the order in the orders container
+            const ordersContainer = document.getElementById('orders-container');
+            const orderElement = document.createElement('div');
+            orderElement.className = 'order-card previous';
+            
+            const items = order.items.map(item => 
+                `<div class="order-item">
+                    <span>${item.name}</span>
+                    <span>$${item.price.toFixed(2)}</span>
+                </div>`
+            ).join('');
+
+            orderElement.innerHTML = `
+                <div class="order-header">
+                    <span class="order-status ${order.status}">${order.status}</span>
+                    <span class="order-time">${order.orderTime}</span>
+                </div>
+                <div class="order-items">${items}</div>
+                <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+            `;
+
+            // Insert the new order at the top
+            if (ordersContainer.firstChild) {
+                ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
+            } else {
+                ordersContainer.appendChild(orderElement);
+            }
+
+            // Clear the cart
             clearCart();
-            loadOrders();
+            alert('Order placed successfully!');
         })
         .catch(error => {
             console.error('Error placing order:', error);
