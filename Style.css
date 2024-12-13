@@ -1180,3 +1180,95 @@ audio {
     color: #6c757d;
     font-size: 0.9em;
 }
+
+/* Orders Section Styles */
+.orders-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 20px;
+    padding: 20px;
+}
+
+.orders-section h2 {
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.orders-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.order-card {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+    border-left: 4px solid #4CAF50;
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.order-time {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.order-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.status-pending {
+    background-color: #ffd700;
+    color: #000;
+}
+
+.status-preparing {
+    background-color: #ff9800;
+    color: white;
+}
+
+.status-ready {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.status-completed {
+    background-color: #808080;
+    color: white;
+}
+
+.order-items {
+    margin: 10px 0;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.order-total {
+    margin-top: 10px;
+    font-weight: bold;
+    text-align: right;
+}
+
+/* Make orders section responsive */
+@media (max-width: 768px) {
+    .orders-section {
+        margin: 10px;
+    }
+}
