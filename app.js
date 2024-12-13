@@ -176,10 +176,9 @@ function placeOrder() {
 
     // Add order to Firebase
     database.ref('orders').push(order)
-        .then((ref) => {
+        .then(() => {
             clearCart();
             alert('Order placed successfully!');
-            // No need to manually add the order here as it will be handled by the Firebase listener
         })
         .catch(error => {
             console.error('Error placing order:', error);
@@ -191,67 +190,60 @@ function loadOrders() {
     const ordersContainer = document.getElementById('orders-container');
     if (!window.tableId || !ordersContainer) return;
 
-    // Get orders from Firebase and listen for changes
+    // Listen for changes in orders
     database.ref('orders')
         .orderByChild('tableId')
         .equalTo(window.tableId)
-        .on('value', function(snapshot) {
-            if (!snapshot.exists()) {
-                ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
-                return;
-            }
-
-            const orders = [];
-            snapshot.forEach((childSnapshot) => {
-                orders.push({
-                    id: childSnapshot.key,
-                    ...childSnapshot.val()
-                });
-            });
-
-            // Sort orders by time, most recent first
-            orders.sort((a, b) => {
-                return new Date(b.orderTime) - new Date(a.orderTime);
-            });
-
-            // Update existing orders or add new ones
-            orders.forEach((order) => {
-                let orderElement = document.getElementById(`order-${order.id}`);
-                
-                if (!orderElement) {
-                    // Create new order element if it doesn't exist
-                    orderElement = document.createElement('div');
-                    orderElement.id = `order-${order.id}`;
-                    orderElement.className = 'order-card previous';
-                    ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
-                }
-
-                // Update the order content
-                const items = order.items.map(item => 
-                    `<div class="order-item">
-                        <span>${item.name}</span>
-                        <span>$${item.price.toFixed(2)}</span>
-                    </div>`
-                ).join('');
-
-                orderElement.innerHTML = `
-                    <div class="order-header">
-                        <span class="order-id">Order #${order.id.slice(-4)}</span>
-                        <span class="order-status ${order.status}">${order.status}</span>
-                    </div>
-                    <div class="order-items">${items}</div>
-                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                    <div class="order-time">Ordered at: ${order.orderTime}</div>
-                `;
-            });
-
-            // Remove any orders that no longer exist
-            const existingOrderElements = ordersContainer.getElementsByClassName('order-card');
-            Array.from(existingOrderElements).forEach(element => {
-                const orderId = element.id.replace('order-', '');
-                if (!orders.find(order => order.id === orderId)) {
-                    element.remove();
-                }
-            });
+        .on('child_added', function(snapshot) {
+            const order = {
+                id: snapshot.key,
+                ...snapshot.val()
+            };
+            addOrUpdateOrder(order);
         });
+
+    // Listen for order updates
+    database.ref('orders')
+        .orderByChild('tableId')
+        .equalTo(window.tableId)
+        .on('child_changed', function(snapshot) {
+            const order = {
+                id: snapshot.key,
+                ...snapshot.val()
+            };
+            addOrUpdateOrder(order);
+        });
+}
+
+function addOrUpdateOrder(order) {
+    const ordersContainer = document.getElementById('orders-container');
+    if (!ordersContainer) return;
+
+    let orderElement = document.getElementById(`order-${order.id}`);
+    
+    if (!orderElement) {
+        // Create new order element
+        orderElement = document.createElement('div');
+        orderElement.id = `order-${order.id}`;
+        orderElement.className = 'order-card previous';
+        ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
+    }
+
+    // Update the order content
+    const items = order.items.map(item => 
+        `<div class="order-item">
+            <span>${item.name}</span>
+            <span>$${item.price.toFixed(2)}</span>
+        </div>`
+    ).join('');
+
+    orderElement.innerHTML = `
+        <div class="order-header">
+            <span class="order-id">Order #${order.id.slice(-4)}</span>
+            <span class="order-status ${order.status}">${order.status}</span>
+        </div>
+        <div class="order-items">${items}</div>
+        <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+        <div class="order-time">Ordered at: ${order.orderTime}</div>
+    `;
 }
