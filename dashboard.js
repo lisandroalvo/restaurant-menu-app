@@ -33,6 +33,7 @@ function switchTab(tabId) {
     
     // Load history orders when switching to history tab
     if (tabId === 'order-history') {
+        console.log('Switching to history tab');
         loadHistoryOrders();
     }
 }
@@ -153,125 +154,120 @@ function moveToHistory(id) {
 // Move selected orders to history
 function moveSelectedToHistory() {
     const selectedOrders = document.querySelectorAll('.order-select:checked');
+    console.log('Selected orders:', selectedOrders.length);
     
     if (selectedOrders.length === 0) {
         alert('Please select orders to move to history');
         return;
     }
 
-    if (!confirm(`Are you sure you want to move ${selectedOrders.length} order(s) to history?`)) {
-        return;
-    }
-
-    // Keep track of updates
-    const updates = {};
-
     selectedOrders.forEach(checkbox => {
         const orderId = checkbox.getAttribute('data-order-id');
-        const orderCard = document.getElementById(`order-${orderId}`);
-        
-        // Prepare update for this order
-        updates[`/orders/${orderId}`] = {
-            status: 'completed',
-            completedAt: Date.now()
-        };
+        console.log('Processing order:', orderId);
 
-        // Remove from active orders view
-        if (orderCard) {
-            orderCard.remove();
-        }
+        // Get the reference to the order
+        const orderRef = database.ref(`orders/${orderId}`);
+        
+        // First get the current order data
+        orderRef.once('value')
+            .then(snapshot => {
+                const orderData = snapshot.val();
+                console.log('Current order data:', orderData);
+
+                // Update the order with completed status
+                const updates = {
+                    ...orderData,
+                    status: 'completed',
+                    completedAt: Date.now()
+                };
+
+                console.log('Updating order with:', updates);
+                return orderRef.update(updates);
+            })
+            .then(() => {
+                console.log('Order updated successfully:', orderId);
+                // Remove from active orders view
+                const orderCard = document.getElementById(`order-${orderId}`);
+                if (orderCard) {
+                    orderCard.remove();
+                }
+            })
+            .catch(error => {
+                console.error('Error moving order to history:', error);
+            });
     });
 
-    // Update all orders at once
-    database.ref().update(updates)
-        .then(() => {
-            // Uncheck select all checkbox
-            const selectAllCheckbox = document.getElementById('select-all-orders');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = false;
-            }
+    // Uncheck select all checkbox
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
 
-            // Switch to history tab
-            switchTab('order-history');
-        })
-        .catch(error => {
-            console.error('Error moving orders to history:', error);
-            alert('Error moving orders to history. Please try again.');
-        });
+    // Switch to history tab and load orders
+    switchTab('order-history');
 }
 
 // Load history orders
 function loadHistoryOrders() {
+    console.log('Loading history orders...');
     const historyContainer = document.querySelector('.history-container');
     historyContainer.innerHTML = '<p>Loading history...</p>';
 
+    // Get all completed orders
     database.ref('orders')
         .orderByChild('status')
         .equalTo('completed')
         .once('value')
         .then(snapshot => {
-            const orders = [];
+            console.log('Received history data:', snapshot.val());
             
-            snapshot.forEach(childSnapshot => {
-                const order = childSnapshot.val();
-                order.id = childSnapshot.key;
-                orders.push(order);
-            });
-
-            if (orders.length === 0) {
+            if (!snapshot.exists()) {
                 historyContainer.innerHTML = '<p>No completed orders found</p>';
                 return;
             }
 
-            // Sort orders by completion time, newest first
-            orders.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
-
-            // Group orders by date
-            const ordersByDate = {};
-            orders.forEach(order => {
-                const date = new Date(order.completedAt || order.timestamp).toLocaleDateString();
-                if (!ordersByDate[date]) {
-                    ordersByDate[date] = [];
-                }
-                ordersByDate[date].push(order);
+            const orders = [];
+            snapshot.forEach(childSnapshot => {
+                orders.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
             });
+
+            console.log('Processed orders:', orders);
+
+            // Sort by completion time, newest first
+            orders.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
 
             // Clear container
             historyContainer.innerHTML = '';
 
-            // Create date groups
-            Object.entries(ordersByDate).forEach(([date, dateOrders]) => {
-                const dateGroup = document.createElement('div');
-                dateGroup.className = 'history-date-group';
+            // Display each order
+            orders.forEach(order => {
+                const orderElement = document.createElement('div');
+                orderElement.className = 'order-card history-order';
                 
-                const ordersHtml = dateOrders.map(order => `
-                    <div class="order-card history-order">
-                        <div class="order-header">
-                            <span class="table-number">Table ${order.tableId}</span>
-                            <span class="status-badge status-completed">Completed</span>
-                        </div>
-                        <div class="order-items">
-                            ${order.items.map(item => `
-                                <div class="order-item">
-                                    <span>${item.quantity}x ${item.name}</span>
-                                    <span>$${item.price.toFixed(2)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                        <div class="order-time">
-                            Ordered: ${order.orderTime}<br>
-                            Completed: ${new Date(order.completedAt).toLocaleString()}
-                        </div>
+                orderElement.innerHTML = `
+                    <div class="order-header">
+                        <span class="table-number">Table ${order.tableId}</span>
+                        <span class="status-badge status-completed">Completed</span>
                     </div>
-                `).join('');
-
-                dateGroup.innerHTML = `
-                    <div class="history-date-header">${date}</div>
-                    <div class="history-orders">${ordersHtml}</div>
+                    <div class="order-items">
+                        ${order.items.map(item => `
+                            <div class="order-item">
+                                <span>${item.quantity}x ${item.name}</span>
+                                <span>$${item.price.toFixed(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                    <div class="order-time">
+                        Ordered: ${order.orderTime}<br>
+                        Completed: ${new Date(order.completedAt).toLocaleString()}
+                    </div>
                 `;
                 
-                historyContainer.appendChild(dateGroup);
+                historyContainer.appendChild(orderElement);
             });
         })
         .catch(error => {
@@ -312,14 +308,6 @@ function initializeListeners() {
         } else {
             displayActiveOrder(orderId, orderData);
         }
-    });
-    
-    // Listen for bill requests
-    database.ref('billRequests').on('child_added', (snapshot) => {
-        const requestId = snapshot.key;
-        const requestData = snapshot.val();
-        displayBillRequest(requestId, requestData);
-        playNotification();
     });
 }
 
