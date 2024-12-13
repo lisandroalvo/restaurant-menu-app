@@ -176,38 +176,10 @@ function placeOrder() {
 
     // Add order to Firebase
     database.ref('orders').push(order)
-        .then(() => {
-            // Create and display the order in the orders container
-            const ordersContainer = document.getElementById('orders-container');
-            const orderElement = document.createElement('div');
-            orderElement.className = 'order-card previous';
-            
-            const items = order.items.map(item => 
-                `<div class="order-item">
-                    <span>${item.name}</span>
-                    <span>$${item.price.toFixed(2)}</span>
-                </div>`
-            ).join('');
-
-            orderElement.innerHTML = `
-                <div class="order-header">
-                    <span class="order-status ${order.status}">${order.status}</span>
-                    <span class="order-time">${order.orderTime}</span>
-                </div>
-                <div class="order-items">${items}</div>
-                <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-            `;
-
-            // Insert the new order at the top
-            if (ordersContainer.firstChild) {
-                ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
-            } else {
-                ordersContainer.appendChild(orderElement);
-            }
-
-            // Clear the cart
+        .then((ref) => {
             clearCart();
             alert('Order placed successfully!');
+            // No need to manually add the order here as it will be handled by the Firebase listener
         })
         .catch(error => {
             console.error('Error placing order:', error);
@@ -219,39 +191,42 @@ function loadOrders() {
     const ordersContainer = document.getElementById('orders-container');
     if (!window.tableId || !ordersContainer) return;
 
-    // Get orders from Firebase
+    // Get orders from Firebase and listen for changes
     database.ref('orders')
         .orderByChild('tableId')
         .equalTo(window.tableId)
         .on('value', function(snapshot) {
-            ordersContainer.innerHTML = '';
-            
             if (!snapshot.exists()) {
                 ordersContainer.innerHTML = '<div class="no-orders">No orders found</div>';
                 return;
             }
 
-            let totalSpent = 0;
             const orders = [];
-
-            // Collect all orders first
-            snapshot.forEach(function(childSnapshot) {
+            snapshot.forEach((childSnapshot) => {
                 orders.push({
                     id: childSnapshot.key,
-                    ...childSnapshot.val(),
-                    timestamp: new Date(childSnapshot.val().orderTime).getTime()
+                    ...childSnapshot.val()
                 });
-                totalSpent += childSnapshot.val().total;
             });
 
-            // Sort orders by timestamp, most recent first
-            orders.sort((a, b) => b.timestamp - a.timestamp);
+            // Sort orders by time, most recent first
+            orders.sort((a, b) => {
+                return new Date(b.orderTime) - new Date(a.orderTime);
+            });
 
-            // Display orders
-            orders.forEach(function(order, index) {
-                const orderElement = document.createElement('div');
-                orderElement.className = `order-card ${index > 0 ? 'previous' : ''}`;
+            // Update existing orders or add new ones
+            orders.forEach((order) => {
+                let orderElement = document.getElementById(`order-${order.id}`);
                 
+                if (!orderElement) {
+                    // Create new order element if it doesn't exist
+                    orderElement = document.createElement('div');
+                    orderElement.id = `order-${order.id}`;
+                    orderElement.className = 'order-card previous';
+                    ordersContainer.insertBefore(orderElement, ordersContainer.firstChild);
+                }
+
+                // Update the order content
                 const items = order.items.map(item => 
                     `<div class="order-item">
                         <span>${item.name}</span>
@@ -268,20 +243,15 @@ function loadOrders() {
                     <div class="order-total">Total: $${order.total.toFixed(2)}</div>
                     <div class="order-time">Ordered at: ${order.orderTime}</div>
                 `;
-                
-                ordersContainer.appendChild(orderElement);
             });
 
-            // Add total spent summary
-            if (orders.length > 0) {
-                const summaryElement = document.createElement('div');
-                summaryElement.className = 'order-summary';
-                summaryElement.innerHTML = `
-                    <div class="total-spent">
-                        Total Spent: $${totalSpent.toFixed(2)}
-                    </div>
-                `;
-                ordersContainer.appendChild(summaryElement);
-            }
+            // Remove any orders that no longer exist
+            const existingOrderElements = ordersContainer.getElementsByClassName('order-card');
+            Array.from(existingOrderElements).forEach(element => {
+                const orderId = element.id.replace('order-', '');
+                if (!orders.find(order => order.id === orderId)) {
+                    element.remove();
+                }
+            });
         });
 }

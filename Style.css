@@ -457,37 +457,32 @@ audio {
 }
 
 /* Order Status Styles */
-.status-badge {
-    padding: 8px 16px;
+.order-status {
+    padding: 6px 12px;
     border-radius: 20px;
-    font-weight: bold;
-    text-transform: uppercase;
     font-size: 0.9em;
-    display: inline-block;
+    font-weight: 500;
+    text-transform: capitalize;
 }
 
-.status-pending {
-    background-color: #ffeeba;
-    color: #856404;
-    border: 1px solid #ffeeba;
+.order-status.pending {
+    background-color: #ffc107;
+    color: #000;
 }
 
-.status-preparing {
-    background-color: #fff3cd;
-    color: #664d03;
-    border: 1px solid #ffecb5;
+.order-status.preparing {
+    background-color: #17a2b8;
+    color: white;
 }
 
-.status-ready {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+.order-status.ready {
+    background-color: #28a745;
+    color: white;
 }
 
-.status-delivered {
-    background-color: #cce5ff;
-    color: #004085;
-    border: 1px solid #b8daff;
+.order-status.completed {
+    background-color: #6c757d;
+    color: white;
 }
 
 /* Dashboard Controls */
@@ -650,18 +645,18 @@ audio {
 }
 
 .status-pending {
-    background-color: #ffeeba;
-    color: #856404;
+    background-color: #ffc107;
+    color: #000;
 }
 
 .status-preparing {
-    background-color: #fff3cd;
-    color: #664d03;
+    background-color: #17a2b8;
+    color: white;
 }
 
 .status-ready {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: #28a745;
+    color: white;
 }
 
 .status-delivered {
@@ -1047,8 +1042,14 @@ audio {
 
 .order-card.previous {
     background-color: #f8f9fa;
-    opacity: 0.8;
+    opacity: 0.85;
     border-left: 4px solid #6c757d;
+    transition: all 0.3s ease;
+}
+
+.order-card.previous:hover {
+    opacity: 1;
+    transform: translateX(5px);
 }
 
 .order-header {
