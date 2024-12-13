@@ -216,7 +216,6 @@ function loadHistoryOrders() {
     const historyContainer = document.querySelector('.history-container');
     historyContainer.innerHTML = '<p>Loading history...</p>';
 
-    // Get all completed orders
     database.ref('orders')
         .orderByChild('status')
         .equalTo('completed')
@@ -237,47 +236,88 @@ function loadHistoryOrders() {
                 });
             });
 
-            console.log('Processed orders:', orders);
-
-            // Sort by completion time, newest first
-            orders.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+            // Group orders by date
+            const ordersByDate = {};
+            orders.forEach(order => {
+                const completedDate = order.completedAt ? new Date(order.completedAt) : new Date();
+                const dateKey = completedDate.toLocaleDateString();
+                
+                if (!ordersByDate[dateKey]) {
+                    ordersByDate[dateKey] = [];
+                }
+                ordersByDate[dateKey].push(order);
+            });
 
             // Clear container
             historyContainer.innerHTML = '';
 
-            // Display each order
-            orders.forEach(order => {
-                const orderElement = document.createElement('div');
-                orderElement.className = 'order-card history-order';
+            // Sort dates newest first
+            const sortedDates = Object.keys(ordersByDate).sort((a, b) => {
+                return new Date(b) - new Date(a);
+            });
+
+            // Create folders for each date
+            sortedDates.forEach(dateKey => {
+                const dateOrders = ordersByDate[dateKey];
+                const dateFolder = document.createElement('div');
+                dateFolder.className = 'date-folder';
                 
-                // Add null checks for items and total
-                const items = order.items || [];
-                const total = order.total || 0;
-                
-                orderElement.innerHTML = `
-                    <div class="order-header">
-                        <span class="table-number">Table ${order.tableId}</span>
-                        <span class="status-badge status-completed">Completed</span>
-                    </div>
-                    <div class="order-items">
-                        ${items.map(item => {
-                            const itemPrice = item.price || 0;
-                            return `
-                                <div class="order-item">
-                                    <span>${item.quantity}x ${item.name}</span>
-                                    <span>$${itemPrice.toFixed(2)}</span>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                    <div class="order-total">Total: $${total.toFixed(2)}</div>
-                    <div class="order-time">
-                        Ordered: ${order.orderTime || 'Unknown'}<br>
-                        Completed: ${order.completedAt ? new Date(order.completedAt).toLocaleString() : 'Unknown'}
-                    </div>
+                // Create folder header
+                const header = document.createElement('div');
+                header.className = 'date-folder-header';
+                header.innerHTML = `
+                    <span>${dateKey}</span>
+                    <span class="order-count">${dateOrders.length} orders</span>
                 `;
                 
-                historyContainer.appendChild(orderElement);
+                // Create folder content
+                const content = document.createElement('div');
+                content.className = 'date-folder-content';
+                
+                // Add orders to folder
+                dateOrders.forEach(order => {
+                    const orderElement = document.createElement('div');
+                    orderElement.className = 'order-card history-order';
+                    
+                    // Add null checks for items and total
+                    const items = order.items || [];
+                    const total = order.total || 0;
+                    
+                    orderElement.innerHTML = `
+                        <div class="order-header">
+                            <span class="table-number">Table ${order.tableId}</span>
+                            <span class="status-badge status-completed">Completed</span>
+                        </div>
+                        <div class="order-items">
+                            ${items.map(item => {
+                                const itemPrice = item.price || 0;
+                                return `
+                                    <div class="order-item">
+                                        <span>${item.quantity}x ${item.name}</span>
+                                        <span>$${itemPrice.toFixed(2)}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div class="order-total">Total: $${total.toFixed(2)}</div>
+                        <div class="order-time">
+                            Ordered: ${order.orderTime || 'Unknown'}<br>
+                            Completed: ${order.completedAt ? new Date(order.completedAt).toLocaleTimeString() : 'Unknown'}
+                        </div>
+                    `;
+                    
+                    content.appendChild(orderElement);
+                });
+                
+                // Add click handler to toggle folder
+                header.addEventListener('click', () => {
+                    dateFolder.classList.toggle('open');
+                });
+                
+                // Assemble folder
+                dateFolder.appendChild(header);
+                dateFolder.appendChild(content);
+                historyContainer.appendChild(dateFolder);
             });
         })
         .catch(error => {
