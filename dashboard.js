@@ -176,9 +176,13 @@ function moveSelectedToHistory() {
         const orderId = checkbox.getAttribute('data-order-id');
         const orderCard = document.getElementById(`order-${orderId}`);
         
-        return database.ref(`orders/${orderId}`).update({
-            status: 'completed',
-            completedAt: Date.now()
+        return database.ref(`orders/${orderId}`).get().then(snapshot => {
+            const orderData = snapshot.val();
+            return database.ref(`orders/${orderId}`).update({
+                status: 'completed',
+                completedAt: Date.now(),
+                orderTime: orderData.timestamp || new Date().toLocaleString() // Ensure we have orderTime
+            });
         }).then(() => {
             // Remove from active orders view
             if (orderCard) {
@@ -223,7 +227,7 @@ function loadHistoryOrders() {
             // Group orders by date
             snapshot.forEach(childSnapshot => {
                 const order = childSnapshot.val();
-                const date = new Date(order.completedAt).toLocaleDateString();
+                const date = new Date(order.completedAt || order.timestamp).toLocaleDateString();
                 if (!ordersByDate[date]) {
                     ordersByDate[date] = [];
                 }
@@ -282,7 +286,7 @@ function loadHistoryOrders() {
                                     </div>
                                     <div class="order-total">Total: $${order.total.toFixed(2)}</div>
                                     <div class="order-time">
-                                        Ordered: ${order.orderTime}<br>
+                                        Ordered: ${order.orderTime || new Date(order.timestamp).toLocaleString()}<br>
                                         Completed: ${new Date(order.completedAt).toLocaleString()}
                                     </div>
                                 </div>
