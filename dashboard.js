@@ -31,6 +31,7 @@ function switchTab(tabId) {
     document.getElementById(tabId).classList.add('active');
     document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
     
+    // Load history orders when switching to history tab
     if (tabId === 'order-history') {
         loadHistoryOrders();
     }
@@ -162,7 +163,6 @@ function moveToHistory(id) {
 // Move selected orders to history
 function moveSelectedToHistory() {
     const selectedOrders = document.querySelectorAll('.order-select:checked');
-    console.log('Selected orders:', selectedOrders.length);
     
     if (selectedOrders.length === 0) {
         alert('Please select orders to move to history');
@@ -173,164 +173,104 @@ function moveSelectedToHistory() {
         return;
     }
 
-    const promises = Array.from(selectedOrders).map(checkbox => {
+    selectedOrders.forEach(checkbox => {
         const orderId = checkbox.getAttribute('data-order-id');
-        console.log('Moving order to history:', orderId);
         const orderCard = document.getElementById(`order-${orderId}`);
         
-        return database.ref(`orders/${orderId}`).get()
-            .then(snapshot => {
-                const orderData = snapshot.val();
-                console.log('Current order data:', orderData);
-                
-                if (!orderData) {
-                    throw new Error(`Order ${orderId} not found`);
-                }
-                
-                const completedAt = Date.now();
-                return database.ref(`orders/${orderId}`).update({
-                    status: 'completed',
-                    completedAt: completedAt,
-                    timestamp: orderData.timestamp || Date.now()
-                });
-            })
-            .then(() => {
-                console.log(`Order ${orderId} marked as completed`);
-                // Remove from active orders view
-                if (orderCard) {
-                    orderCard.remove();
-                }
-            })
-            .catch(error => {
-                console.error(`Error processing order ${orderId}:`, error);
-                throw error;
-            });
+        // Update order status in Firebase
+        database.ref(`orders/${orderId}`).update({
+            status: 'completed',
+            completedAt: Date.now()
+        });
+
+        // Remove from active orders view
+        if (orderCard) {
+            orderCard.remove();
+        }
     });
 
-    Promise.all(promises)
-        .then(() => {
-            console.log('All orders processed successfully');
-            // Uncheck select all checkbox
-            const selectAllCheckbox = document.getElementById('select-all-orders');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = false;
-            }
-            
-            // Switch to history tab and refresh
-            switchTab('order-history');
-            // Wait a bit for the database to update
-            setTimeout(loadHistoryOrders, 500);
-            
-            // Show success message
-            alert('Orders successfully moved to history');
-        })
-        .catch(error => {
-            console.error('Error moving orders to history:', error);
-            alert('Error moving orders to history. Please try again.');
-        });
+    // Uncheck select all checkbox
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+
+    // Switch to history tab
+    switchTab('order-history');
 }
 
 // Load history orders
 function loadHistoryOrders() {
     const historyContainer = document.querySelector('.history-container');
-    if (!historyContainer) {
-        console.error('History container not found');
-        return;
-    }
-
-    const selectedDate = document.getElementById('history-date')?.value;
-    console.log('Loading history orders, selected date:', selectedDate);
-    
-    // Clear existing content
     historyContainer.innerHTML = '<p>Loading history...</p>';
-    
-    // Query for completed orders
+
     database.ref('orders')
         .orderByChild('status')
         .equalTo('completed')
         .once('value')
         .then(snapshot => {
-            console.log('Received orders from Firebase:', snapshot.val());
-            let ordersByDate = {};
-            
-            // Group orders by date
+            const orders = [];
             snapshot.forEach(childSnapshot => {
-                const order = childSnapshot.val();
-                console.log('Processing order:', childSnapshot.key, order);
-                
+                orders.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+
+            if (orders.length === 0) {
+                historyContainer.innerHTML = '<p>No completed orders found</p>';
+                return;
+            }
+
+            // Sort orders by completion date, newest first
+            orders.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
+            // Group orders by date
+            const ordersByDate = {};
+            orders.forEach(order => {
                 const date = new Date(order.completedAt || order.timestamp).toLocaleDateString();
                 if (!ordersByDate[date]) {
                     ordersByDate[date] = [];
                 }
-                ordersByDate[date].push({
-                    id: childSnapshot.key,
-                    ...order
-                });
+                ordersByDate[date].push(order);
             });
-            
-            console.log('Grouped orders by date:', ordersByDate);
-            
-            // If no orders found
-            if (Object.keys(ordersByDate).length === 0) {
-                historyContainer.innerHTML = '<p>No history orders found</p>';
-                return;
-            }
-            
-            // Filter by selected date if any
-            if (selectedDate) {
-                const formattedDate = new Date(selectedDate).toLocaleDateString();
-                console.log('Filtering by date:', formattedDate);
-                if (ordersByDate[formattedDate]) {
-                    const filteredOrders = {};
-                    filteredOrders[formattedDate] = ordersByDate[formattedDate];
-                    ordersByDate = filteredOrders;
-                } else {
-                    historyContainer.innerHTML = '<p>No orders found for selected date</p>';
-                    return;
-                }
-            }
-            
-            // Clear loading message
+
+            // Clear container
             historyContainer.innerHTML = '';
-            
+
             // Create date groups
-            Object.entries(ordersByDate)
-                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-                .forEach(([date, orders]) => {
-                    console.log('Creating group for date:', date, 'with orders:', orders);
-                    const dateGroup = document.createElement('div');
-                    dateGroup.className = 'history-date-group';
-                    
-                    dateGroup.innerHTML = `
-                        <div class="history-date-header">${date}</div>
-                        <div class="history-orders">
-                            ${orders.map(order => `
-                                <div class="order-card history-order">
-                                    <div class="order-header">
-                                        <span class="order-id">Order #${order.id.slice(-4)}</span>
-                                        <span class="table-number">Table ${order.tableId}</span>
-                                        <span class="status-badge status-completed">Completed</span>
-                                    </div>
-                                    <div class="order-items">
-                                        ${order.items.map(item => `
-                                            <div class="order-item">
-                                                <span>${item.quantity}x ${item.name}</span>
-                                                <span>$${item.price.toFixed(2)}</span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                    <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-                                    <div class="order-time">
-                                        Ordered: ${new Date(order.timestamp).toLocaleString()}<br>
-                                        Completed: ${new Date(order.completedAt).toLocaleString()}
-                                    </div>
+            Object.entries(ordersByDate).forEach(([date, dateOrders]) => {
+                const dateGroup = document.createElement('div');
+                dateGroup.className = 'history-date-group';
+                
+                const ordersHtml = dateOrders.map(order => `
+                    <div class="order-card history-order">
+                        <div class="order-header">
+                            <span class="table-number">Table ${order.tableId}</span>
+                            <span class="status-badge status-completed">Completed</span>
+                        </div>
+                        <div class="order-items">
+                            ${order.items.map(item => `
+                                <div class="order-item">
+                                    <span>${item.quantity}x ${item.name}</span>
+                                    <span>$${item.price.toFixed(2)}</span>
                                 </div>
                             `).join('')}
                         </div>
-                    `;
-                    
-                    historyContainer.appendChild(dateGroup);
-                });
+                        <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+                        <div class="order-time">
+                            Completed: ${new Date(order.completedAt).toLocaleString()}
+                        </div>
+                    </div>
+                `).join('');
+
+                dateGroup.innerHTML = `
+                    <div class="history-date-header">${date}</div>
+                    <div class="history-orders">${ordersHtml}</div>
+                `;
+                
+                historyContainer.appendChild(dateGroup);
+            });
         })
         .catch(error => {
             console.error('Error loading history:', error);

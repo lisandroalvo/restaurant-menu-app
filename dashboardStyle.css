@@ -213,43 +213,66 @@ header h1 {
 
 /* History Groups */
 .history-date-group {
-    margin-bottom: 2rem;
+    margin: 20px 0;
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow: hidden;
 }
 
 .history-date-header {
     background: #f5f5f5;
-    padding: 1rem;
+    padding: 15px 20px;
     font-weight: bold;
     border-bottom: 1px solid #ddd;
 }
 
 .history-orders {
-    padding: 1rem;
+    padding: 15px;
 }
 
 .history-order {
-    opacity: 0.8;
+    margin: 10px 0;
     background: #fafafa;
+    border: 1px solid #eee;
 }
 
 .history-order .order-header {
     background: #f0f0f0;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .history-order .status-completed {
     background: #4CAF50;
     color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.9em;
 }
 
-.order-time {
-    font-size: 0.9rem;
+.history-order .order-items {
+    padding: 15px;
+}
+
+.history-order .order-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.history-order .order-total {
+    padding: 10px 15px;
+    font-weight: bold;
+    border-top: 1px solid #eee;
+}
+
+.history-order .order-time {
+    padding: 10px 15px;
     color: #666;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
+    font-size: 0.9em;
     border-top: 1px solid #eee;
 }
 
