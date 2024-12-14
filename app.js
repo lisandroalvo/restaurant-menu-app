@@ -211,6 +211,7 @@ function loadOrders() {
     const tableId = document.getElementById('table-number').textContent;
     const ordersRef = database.ref('orders');
     
+    // Listen for changes in orders
     ordersRef.orderByChild('tableId')
         .equalTo(tableId)
         .on('value', snapshot => {
@@ -227,10 +228,10 @@ function loadOrders() {
 
 function updateOrdersUI(orders) {
     const ordersContainer = document.getElementById('orders-container');
-    ordersContainer.innerHTML = '<h3>My Orders</h3>';
+    ordersContainer.innerHTML = '';
 
-    if (orders.length === 0) {
-        ordersContainer.innerHTML += '<p class="no-orders">No orders yet</p>';
+    if (!orders || orders.length === 0) {
+        ordersContainer.innerHTML = '<p class="no-orders">No orders yet</p>';
         return;
     }
 
@@ -238,8 +239,8 @@ function updateOrdersUI(orders) {
     orders.sort((a, b) => new Date(b.orderTime) - new Date(a.orderTime));
 
     orders.forEach(order => {
-        const orderElement = document.createElement('div');
-        orderElement.className = `order-card ${order.status}`;
+        const orderCard = document.createElement('div');
+        orderCard.className = `order-card ${order.status}`;
         
         const items = order.items.map(item => 
             `<div class="order-item">
@@ -248,160 +249,152 @@ function updateOrdersUI(orders) {
             </div>`
         ).join('');
 
-        let statusDisplay = '';
+        let statusHtml = '';
         if (order.status === 'processing') {
-            statusDisplay = `
-                <div class="status-badge processing">
-                    <div class="spinner"></div>
-                    <span class="status-text">Processing Order</span>
+            statusHtml = `
+                <div class="order-status processing">
+                    <div class="status-icon">
+                        <div class="spinner"></div>
+                    </div>
+                    <span>Processing your order...</span>
                 </div>
             `;
         } else if (order.status === 'preparing') {
-            statusDisplay = `
-                <div class="status-badge preparing">
-                    <i class="fas fa-utensils"></i>
-                    <span class="status-text">Chef is Preparing</span>
+            statusHtml = `
+                <div class="order-status preparing">
+                    <div class="status-icon">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                    <span>Chef is preparing your order</span>
                 </div>
             `;
         } else if (order.status === 'ready') {
-            statusDisplay = `
-                <div class="status-badge ready">
-                    <i class="fas fa-check"></i>
-                    <span class="status-text">Ready for Pickup</span>
+            statusHtml = `
+                <div class="order-status ready">
+                    <div class="status-icon">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <span>Order is ready!</span>
                 </div>
             `;
         } else if (order.status === 'delivered') {
-            statusDisplay = `
-                <div class="status-badge delivered">
-                    <i class="fas fa-check-double"></i>
-                    <span class="status-text">Order Delivered</span>
+            statusHtml = `
+                <div class="order-status delivered">
+                    <div class="status-icon">
+                        <i class="fas fa-check-double"></i>
+                    </div>
+                    <span>Order delivered</span>
                 </div>
             `;
         }
 
-        orderElement.innerHTML = `
-            <div class="order-header">
-                <span class="order-time">${order.orderTime}</span>
-                ${statusDisplay}
+        orderCard.innerHTML = `
+            <div class="order-time">Order placed at ${order.orderTime}</div>
+            <div class="order-items">
+                ${items}
             </div>
-            <div class="order-items">${items}</div>
-            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+            <div class="order-total">
+                Total: $${order.total.toFixed(2)}
+            </div>
+            ${statusHtml}
         `;
 
-        ordersContainer.appendChild(orderElement);
+        ordersContainer.appendChild(orderCard);
     });
 }
 
-// Add necessary styles
+// Add styles
 const style = document.createElement('style');
 style.textContent = `
     .order-card {
         background: white;
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-
-    .order-card.processing {
-        border: 1px solid #ffc107;
-    }
-
-    .order-card.preparing {
-        border: 1px solid #2196F3;
-    }
-
-    .order-card.ready {
-        border: 1px solid #4CAF50;
-    }
-
-    .order-card.delivered {
-        border: 1px solid #9e9e9e;
-        opacity: 0.8;
-    }
-
-    .status-badge {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 500;
-        margin-left: auto;
-    }
-
-    .status-badge.processing {
-        background-color: #fff8e1;
-        color: #ffa000;
-    }
-
-    .status-badge.preparing {
-        background-color: #e3f2fd;
-        color: #1976d2;
-    }
-
-    .status-badge.ready {
-        background-color: #e8f5e9;
-        color: #388e3c;
-    }
-
-    .status-badge.delivered {
-        background-color: #f5f5f5;
-        color: #616161;
-    }
-
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffa000;
-        border-top-color: transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
-    .order-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .order-time {
         color: #666;
         font-size: 14px;
+        margin-bottom: 15px;
     }
 
     .order-items {
+        margin: 15px 0;
+        padding: 15px 0;
         border-top: 1px solid #eee;
         border-bottom: 1px solid #eee;
-        padding: 15px 0;
-        margin: 15px 0;
     }
 
     .order-item {
         display: flex;
         justify-content: space-between;
         margin: 8px 0;
-        color: #333;
     }
 
     .order-total {
-        font-weight: 600;
         text-align: right;
-        color: #333;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+
+    .order-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
+        gap: 10px;
+    }
+
+    .status-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid #ffd700;
+        border-top: 3px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .order-status.processing {
+        background-color: #fff8e1;
+        color: #ffa000;
+    }
+
+    .order-status.preparing {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .order-status.ready {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
+
+    .order-status.delivered {
+        background-color: #f5f5f5;
+        color: #616161;
     }
 
     .no-orders {
         text-align: center;
         color: #666;
-        margin: 20px 0;
-        font-style: italic;
+        padding: 20px;
     }
 `;
 document.head.appendChild(style);
