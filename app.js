@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     updateFloatingCart();
     loadOrders();
-    loadUserOrders();
 });
 
 function initializeTableId() {
@@ -227,99 +226,26 @@ function updateOrdersUI(orders) {
     });
 }
 
-function loadUserOrders() {
-    const tableId = localStorage.getItem('tableId');
-    if (!tableId) return;
-
-    const ordersContainer = document.querySelector('.orders-container');
-    ordersContainer.innerHTML = '<p>Loading your orders...</p>';
-
-    database.ref('orders')
-        .orderByChild('tableId')
-        .equalTo(tableId)
-        .on('value', snapshot => {
-            ordersContainer.innerHTML = '';
-            
-            if (!snapshot.exists()) {
-                ordersContainer.innerHTML = '<p>No orders found</p>';
-                return;
-            }
-
-            // Convert to array and sort by timestamp (newest first)
-            const orders = [];
-            snapshot.forEach(childSnapshot => {
-                orders.push({
-                    id: childSnapshot.key,
-                    ...childSnapshot.val()
-                });
-            });
-            orders.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-            // Display each order
-            orders.forEach(order => {
-                const orderElement = document.createElement('div');
-                orderElement.className = 'order-card';
-                
-                // Calculate total
-                const total = (order.items || []).reduce((sum, item) => 
-                    sum + (item.price || 0) * (item.quantity || 0), 0);
-
-                // Get status class
-                const statusClass = `status-${order.status || 'pending'}`;
-                
-                orderElement.innerHTML = `
-                    <div class="order-header">
-                        <span class="order-time">${new Date(order.timestamp).toLocaleString()}</span>
-                        <span class="order-status ${statusClass}">${order.status || 'pending'}</span>
-                    </div>
-                    <div class="order-items">
-                        ${(order.items || []).map(item => `
-                            <div class="order-item">
-                                <span>${item.quantity}x ${item.name}</span>
-                                <span>$${(item.price * item.quantity).toFixed(2)}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="order-total">Total: $${total.toFixed(2)}</div>
-                `;
-                
-                ordersContainer.appendChild(orderElement);
-            });
-        });
-}
-
 function placeOrder() {
-    const cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
-    if (cartItems.length === 0) {
-        alert('Your cart is empty!');
+    if (!window.tableId || cart.length === 0) {
+        alert('Please add items to your cart before placing an order.');
         return;
     }
 
-    const tableId = localStorage.getItem('tableId');
-    if (!tableId) {
-        alert('Please enter your table number first!');
-        return;
-    }
-
-    const orderData = {
-        tableId: tableId,
-        items: cartItems,
+    const order = {
+        tableId: window.tableId,
+        items: cart,
+        total: total,
         status: 'pending',
         timestamp: Date.now(),
         orderTime: new Date().toLocaleString()
     };
 
     // Add order to Firebase
-    const newOrderRef = database.ref('orders').push();
-    
-    newOrderRef.set(orderData)
+    database.ref('orders').push(order)
         .then(() => {
-            // Clear cart after successful order
-            localStorage.removeItem('cartItems');
-            updateCart();
+            clearCart();
             alert('Order placed successfully!');
-            
-            // Switch to orders tab to show the new order
             document.querySelector('[data-tab="orders"]').click();
         })
         .catch(error => {
@@ -327,31 +253,3 @@ function placeOrder() {
             alert('Error placing order. Please try again.');
         });
 }
-
-function initialize() {
-    // Existing initialization code...
-    
-    // Load user's orders
-    loadUserOrders();
-    
-    // Add tab switching functionality
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', () => {
-            // Remove active class from all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Add active class to selected tab
-            const tabId = button.getAttribute('data-tab');
-            document.getElementById(tabId).classList.add('active');
-            button.classList.add('active');
-        });
-    });
-}
-
-// Call initialize when document is ready
-document.addEventListener('DOMContentLoaded', initialize);
