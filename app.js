@@ -166,8 +166,16 @@ function placeOrder() {
         return;
     }
 
+    // Disable the order button and show processing state
+    const orderBtn = document.getElementById('place-order-btn');
+    orderBtn.disabled = true;
+    orderBtn.textContent = 'Processing...';
+
     const tableId = document.getElementById('table-number').textContent;
+    const orderId = database.ref('orders').push().key; // Generate order ID first
+    
     const order = {
+        id: orderId,
         tableId: tableId,
         items: [...cart],
         total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -175,32 +183,23 @@ function placeOrder() {
         orderTime: new Date().toLocaleString()
     };
 
-    // Disable the order button and show processing state
-    const orderBtn = document.getElementById('place-order-btn');
-    orderBtn.disabled = true;
-    orderBtn.textContent = 'Processing...';
-
     // Add order to Firebase
-    database.ref('orders').push(order)
-        .then((ref) => {
-            // Show success message
-            const successMessage = document.createElement('div');
-            successMessage.className = 'success-message';
-            successMessage.textContent = 'Order placed successfully!';
-            orderBtn.parentNode.insertBefore(successMessage, orderBtn.nextSibling);
-
-            // Remove success message after 3 seconds
+    database.ref(`orders/${orderId}`).set(order)
+        .then(() => {
+            // Clear cart but keep the order visible
+            cart = [];
+            total = 0;
+            updateCartDisplay();
+            updateFloatingCart();
+            
+            // Switch to orders tab to show the processing animation
+            document.querySelector('[data-tab="orders"]').click();
+            
+            // Enable the order button after 2 seconds
             setTimeout(() => {
-                successMessage.remove();
                 orderBtn.disabled = false;
                 orderBtn.textContent = 'Place Order';
-            }, 3000);
-            
-            // Update the orders display
-            loadOrders();
-            
-            // Switch to orders tab
-            document.querySelector('[data-tab="orders"]').click();
+            }, 2000);
         })
         .catch(error => {
             console.error('Error placing order:', error);
@@ -230,7 +229,12 @@ function loadOrders() {
 
 function updateOrdersUI(orders) {
     const ordersContainer = document.getElementById('orders-container');
-    ordersContainer.innerHTML = '<h3>Order History</h3>';
+    ordersContainer.innerHTML = '<h3>My Orders</h3>';
+
+    if (orders.length === 0) {
+        ordersContainer.innerHTML += '<p class="no-orders">No orders yet</p>';
+        return;
+    }
 
     // Sort orders by time, newest first
     orders.sort((a, b) => new Date(b.orderTime) - new Date(a.orderTime));
@@ -246,12 +250,26 @@ function updateOrdersUI(orders) {
             </div>`
         ).join('');
 
-        const statusText = order.status === 'processing' ? 'Processing...' : order.status;
-        
+        let statusDisplay = '';
+        if (order.status === 'processing') {
+            statusDisplay = `
+                <div class="status-badge processing">
+                    <span class="status-text">Processing</span>
+                    <div class="loading-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            `;
+        } else {
+            statusDisplay = `<div class="status-badge ${order.status}">${order.status}</div>`;
+        }
+
         orderElement.innerHTML = `
             <div class="order-header">
                 <span class="order-time">${order.orderTime}</span>
-                <span class="order-status ${order.status}">${statusText}</span>
+                ${statusDisplay}
             </div>
             <div class="order-items">${items}</div>
             <div class="order-total">Total: $${order.total.toFixed(2)}</div>
@@ -261,23 +279,70 @@ function updateOrdersUI(orders) {
     });
 }
 
+// Add the necessary styles
 const style = document.createElement('style');
 style.textContent = `
-    .success-message {
-        background-color: #4CAF50;
-        color: white;
-        padding: 10px;
-        border-radius: 4px;
-        text-align: center;
-        margin-top: 10px;
-        animation: fadeInOut 3s forwards;
+    .order-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
     }
 
-    @keyframes fadeInOut {
-        0% { opacity: 0; transform: translateY(-10px); }
-        10% { opacity: 1; transform: translateY(0); }
-        90% { opacity: 1; transform: translateY(0); }
-        100% { opacity: 0; transform: translateY(-10px); }
+    .order-card.processing {
+        border: 2px solid #ffc107;
+        animation: processingPulse 2s infinite;
+    }
+
+    @keyframes processingPulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .status-badge.processing {
+        background-color: #ffc107;
+        color: #000;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .loading-dots {
+        display: flex;
+        gap: 4px;
+    }
+
+    .loading-dots span {
+        width: 4px;
+        height: 4px;
+        background-color: currentColor;
+        border-radius: 50%;
+        display: inline-block;
+        animation: dotPulse 1.4s infinite;
+    }
+
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes dotPulse {
+        0%, 60%, 100% { transform: scale(1); opacity: 1; }
+        30% { transform: scale(1.5); opacity: 0.4; }
+    }
+
+    .no-orders {
+        text-align: center;
+        color: #666;
+        margin: 20px 0;
     }
 `;
 document.head.appendChild(style);
