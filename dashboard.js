@@ -489,3 +489,116 @@ function updateSelectAll() {
         selectAllCheckbox.checked = orderCheckboxes.length === checkedCheckboxes.length;
     }
 }
+
+function updateOrdersUI(orders) {
+    const ordersContainer = document.getElementById('orders-container');
+    ordersContainer.innerHTML = '';
+
+    if (!orders || orders.length === 0) {
+        ordersContainer.innerHTML = '<p class="no-orders">No orders yet</p>';
+        return;
+    }
+
+    // Sort orders by time, newest first
+    const sortedOrders = Object.entries(orders).sort(([,a], [,b]) => 
+        new Date(b.orderTime) - new Date(a.orderTime)
+    );
+
+    sortedOrders.forEach(([orderId, order]) => {
+        const orderCard = document.createElement('div');
+        orderCard.className = `order-card ${order.status}`;
+        
+        const items = order.items.map(item => 
+            `<div class="order-item">
+                <span>${item.quantity}x ${item.name}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+            </div>`
+        ).join('');
+
+        const statusButtons = `
+            <div class="status-buttons">
+                <button class="status-btn processing ${order.status === 'processing' ? 'active' : ''}" 
+                    onclick="updateOrderStatus('${orderId}', 'processing')">Processing</button>
+                <button class="status-btn preparing ${order.status === 'preparing' ? 'active' : ''}" 
+                    onclick="updateOrderStatus('${orderId}', 'preparing')">Preparing</button>
+                <button class="status-btn ready ${order.status === 'ready' ? 'active' : ''}" 
+                    onclick="updateOrderStatus('${orderId}', 'ready')">Ready</button>
+                <button class="status-btn delivered ${order.status === 'delivered' ? 'active' : ''}" 
+                    onclick="updateOrderStatus('${orderId}', 'delivered')">Delivered</button>
+            </div>
+        `;
+
+        orderCard.innerHTML = `
+            <div class="order-header">
+                <span class="order-time">${order.orderTime}</span>
+                <div class="status-badge ${order.status}">${order.status}</div>
+            </div>
+            <div class="order-items">${items}</div>
+            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+            ${statusButtons}
+        `;
+
+        ordersContainer.appendChild(orderCard);
+    });
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+    try {
+        const orderRef = ref(database, `orders/${orderId}`);
+        await update(orderRef, { status: newStatus });
+        console.log(`Order ${orderId} status updated to ${newStatus}`);
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        alert('Failed to update order status. Please try again.');
+    }
+}
+
+const style = document.createElement('style');
+style.textContent = `
+    .status-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        opacity: 0.7;
+    }
+
+    .status-btn:hover {
+        opacity: 0.9;
+    }
+
+    .status-btn.active {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+
+    .status-btn.processing {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .status-btn.preparing {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    .status-btn.ready {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .status-btn.delivered {
+        background-color: #9e9e9e;
+        color: white;
+    }
+`;
+document.head.appendChild(style);

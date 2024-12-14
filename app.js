@@ -251,19 +251,43 @@ function updateOrdersUI(orders) {
         ).join('');
 
         let statusDisplay = '';
-        if (order.status === 'processing') {
-            statusDisplay = `
-                <div class="status-badge processing">
-                    <span class="status-text">Processing</span>
-                    <div class="loading-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
+        switch (order.status) {
+            case 'processing':
+                statusDisplay = `
+                    <div class="status-badge processing">
+                        <span class="status-text">Processing</span>
+                        <div class="loading-dots">
+                            <span></span><span></span><span></span>
+                        </div>
                     </div>
-                </div>
-            `;
-        } else {
-            statusDisplay = `<div class="status-badge ${order.status}">${order.status}</div>`;
+                `;
+                break;
+            case 'preparing':
+                statusDisplay = `
+                    <div class="status-badge preparing">
+                        <i class="fas fa-utensils"></i>
+                        <span class="status-text">Preparing</span>
+                    </div>
+                `;
+                break;
+            case 'ready':
+                statusDisplay = `
+                    <div class="status-badge ready">
+                        <i class="fas fa-check"></i>
+                        <span class="status-text">Ready</span>
+                    </div>
+                `;
+                break;
+            case 'delivered':
+                statusDisplay = `
+                    <div class="status-badge delivered">
+                        <i class="fas fa-check-double"></i>
+                        <span class="status-text">Delivered</span>
+                    </div>
+                `;
+                break;
+            default:
+                statusDisplay = `<div class="status-badge ${order.status}">${order.status}</div>`;
         }
 
         orderElement.innerHTML = `
@@ -296,10 +320,36 @@ style.textContent = `
         animation: processingPulse 2s infinite;
     }
 
+    .order-card.preparing {
+        border: 2px solid #2196F3;
+        animation: preparingPulse 2s infinite;
+    }
+
+    .order-card.ready {
+        border: 2px solid #4CAF50;
+        animation: readyPulse 2s infinite;
+    }
+
+    .order-card.delivered {
+        border: 1px solid #9e9e9e;
+    }
+
     @keyframes processingPulse {
         0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
         70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
         100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+
+    @keyframes preparingPulse {
+        0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+    }
+
+    @keyframes readyPulse {
+        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
     }
 
     .status-badge {
@@ -307,14 +357,29 @@ style.textContent = `
         border-radius: 20px;
         font-size: 14px;
         font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .status-badge.processing {
         background-color: #ffc107;
         color: #000;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+    }
+
+    .status-badge.preparing {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    .status-badge.ready {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .status-badge.delivered {
+        background-color: #9e9e9e;
+        color: white;
     }
 
     .loading-dots {
