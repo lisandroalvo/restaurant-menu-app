@@ -249,43 +249,34 @@ function updateOrdersUI(orders) {
         ).join('');
 
         let statusDisplay = '';
-        switch (order.status) {
-            case 'processing':
-                statusDisplay = `
-                    <div class="status-badge processing">
-                        <span class="status-text">Processing</span>
-                        <div class="loading-dots">
-                            <span></span><span></span><span></span>
-                        </div>
-                    </div>
-                `;
-                break;
-            case 'preparing':
-                statusDisplay = `
-                    <div class="status-badge preparing">
-                        <i class="fas fa-utensils"></i>
-                        <span class="status-text">Preparing</span>
-                    </div>
-                `;
-                break;
-            case 'ready':
-                statusDisplay = `
-                    <div class="status-badge ready">
-                        <i class="fas fa-check"></i>
-                        <span class="status-text">Ready</span>
-                    </div>
-                `;
-                break;
-            case 'delivered':
-                statusDisplay = `
-                    <div class="status-badge delivered">
-                        <i class="fas fa-check-double"></i>
-                        <span class="status-text">Delivered</span>
-                    </div>
-                `;
-                break;
-            default:
-                statusDisplay = `<div class="status-badge ${order.status}">${order.status}</div>`;
+        if (order.status === 'processing') {
+            statusDisplay = `
+                <div class="status-badge processing">
+                    <div class="spinner"></div>
+                    <span class="status-text">Processing Order</span>
+                </div>
+            `;
+        } else if (order.status === 'preparing') {
+            statusDisplay = `
+                <div class="status-badge preparing">
+                    <i class="fas fa-utensils"></i>
+                    <span class="status-text">Chef is Preparing</span>
+                </div>
+            `;
+        } else if (order.status === 'ready') {
+            statusDisplay = `
+                <div class="status-badge ready">
+                    <i class="fas fa-check"></i>
+                    <span class="status-text">Ready for Pickup</span>
+                </div>
+            `;
+        } else if (order.status === 'delivered') {
+            statusDisplay = `
+                <div class="status-badge delivered">
+                    <i class="fas fa-check-double"></i>
+                    <span class="status-text">Order Delivered</span>
+                </div>
+            `;
         }
 
         orderElement.innerHTML = `
@@ -301,111 +292,116 @@ function updateOrdersUI(orders) {
     });
 }
 
-// Add the necessary styles
+// Add necessary styles
 const style = document.createElement('style');
 style.textContent = `
     .order-card {
         background: white;
-        border-radius: 8px;
-        padding: 15px;
+        border-radius: 12px;
+        padding: 20px;
         margin: 15px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
     }
 
     .order-card.processing {
-        border: 2px solid #ffc107;
-        animation: processingPulse 2s infinite;
+        border: 1px solid #ffc107;
     }
 
     .order-card.preparing {
-        border: 2px solid #2196F3;
-        animation: preparingPulse 2s infinite;
+        border: 1px solid #2196F3;
     }
 
     .order-card.ready {
-        border: 2px solid #4CAF50;
-        animation: readyPulse 2s infinite;
+        border: 1px solid #4CAF50;
     }
 
     .order-card.delivered {
         border: 1px solid #9e9e9e;
-    }
-
-    @keyframes processingPulse {
-        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
-    }
-
-    @keyframes preparingPulse {
-        0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
-    }
-
-    @keyframes readyPulse {
-        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        opacity: 0.8;
     }
 
     .status-badge {
-        padding: 6px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
         border-radius: 20px;
         font-size: 14px;
         font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        margin-left: auto;
     }
 
     .status-badge.processing {
-        background-color: #ffc107;
-        color: #000;
+        background-color: #fff8e1;
+        color: #ffa000;
     }
 
     .status-badge.preparing {
-        background-color: #2196F3;
-        color: white;
+        background-color: #e3f2fd;
+        color: #1976d2;
     }
 
     .status-badge.ready {
-        background-color: #4CAF50;
-        color: white;
+        background-color: #e8f5e9;
+        color: #388e3c;
     }
 
     .status-badge.delivered {
-        background-color: #9e9e9e;
-        color: white;
+        background-color: #f5f5f5;
+        color: #616161;
     }
 
-    .loading-dots {
-        display: flex;
-        gap: 4px;
-    }
-
-    .loading-dots span {
-        width: 4px;
-        height: 4px;
-        background-color: currentColor;
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #ffa000;
+        border-top-color: transparent;
         border-radius: 50%;
-        display: inline-block;
-        animation: dotPulse 1.4s infinite;
+        animation: spin 1s linear infinite;
     }
 
-    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 
-    @keyframes dotPulse {
-        0%, 60%, 100% { transform: scale(1); opacity: 1; }
-        30% { transform: scale(1.5); opacity: 0.4; }
+    .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .order-time {
+        color: #666;
+        font-size: 14px;
+    }
+
+    .order-items {
+        border-top: 1px solid #eee;
+        border-bottom: 1px solid #eee;
+        padding: 15px 0;
+        margin: 15px 0;
+    }
+
+    .order-item {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        color: #333;
+    }
+
+    .order-total {
+        font-weight: 600;
+        text-align: right;
+        color: #333;
     }
 
     .no-orders {
         text-align: center;
         color: #666;
         margin: 20px 0;
+        font-style: italic;
     }
 `;
 document.head.appendChild(style);
