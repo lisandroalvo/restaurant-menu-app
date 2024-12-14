@@ -5,61 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurant Menu</title>
     <link rel="stylesheet" href="Style.css">
-    <!-- Font Awesome for icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
-    <!-- Toast Notification -->
-    <div id="toast-notification" class="toast-notification">
-        <div class="toast-content">
-            <div class="spinner">
-                <i class="fas fa-spinner fa-spin"></i>
-            </div>
-            <div class="toast-message">
-                <div class="toast-title">Order Status</div>
-                <div class="toast-status">Pending</div>
-            </div>
-        </div>
+    <div class="header">
+        <h1>Restaurant Menu</h1>
+        <div id="table-info" class="table-info">Table: <span id="table-number">Loading...</span></div>
     </div>
 
-    <div class="tab-buttons">
+    <!-- Floating Cart Button -->
+    <div id="floating-cart" class="floating-cart" role="button" tabindex="0">
+        <i class="fas fa-shopping-cart"></i>
+        <span id="cart-total-float">$0.00</span>
+    </div>
+
+    <div class="tabs">
         <button class="tab-button active" data-tab="menu">Menu</button>
-        <button class="tab-button" data-tab="bill">Bill</button>
+        <button class="tab-button" data-tab="orders">My Orders</button>
     </div>
 
-    <!-- Menu Tab -->
-    <div id="menu" class="tab-content active">
-        <div class="menu-section">
-            <h2>Main Dishes</h2>
-            <div class="menu-items">
-                <!-- Your existing menu items here -->
+    <div class="container">
+        <!-- Menu Tab -->
+        <div id="menu" class="tab-content active">
+            <div class="menu-section">
+                <h2>Main Dishes</h2>
+                <div class="menu-items">
+                    <div class="menu-item" data-name="Burger" data-price="10.99">
+                        <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500')"></div>
+                        <h3>Burger</h3>
+                        <p>Delicious beef burger with cheese and fresh vegetables</p>
+                        <span class="price">$10.99</span>
+                        <button class="add-to-cart-btn">Add to Cart</button>
+                    </div>
+                    <div class="menu-item" data-name="Pizza" data-price="12.99">
+                        <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500')"></div>
+                        <h3>Pizza</h3>
+                        <p>Classic pepperoni pizza with mozzarella cheese</p>
+                        <span class="price">$12.99</span>
+                        <button class="add-to-cart-btn">Add to Cart</button>
+                    </div>
+                    <div class="menu-item" data-name="Pasta" data-price="11.99">
+                        <div class="menu-item-image" style="background-image: url('https://images.unsplash.com/photo-1569058242567-93de6f36f8eb?w=500')"></div>
+                        <h3>Pasta</h3>
+                        <p>Fresh pasta with homemade tomato sauce</p>
+                        <span class="price">$11.99</span>
+                        <button class="add-to-cart-btn">Add to Cart</button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Floating Cart -->
-        <div id="floating-cart" class="floating-cart">
-            <div class="cart-header">
-                <h3>Your Cart</h3>
-                <button id="close-cart" class="close-button">&times;</button>
+        <!-- Orders Tab -->
+        <div id="orders" class="tab-content">
+            <h2>My Orders</h2>
+            
+            <!-- Current Cart Section -->
+            <div id="current-cart" class="current-cart">
+                <h3>Current Cart</h3>
+                <div id="cart-items"></div>
+                <div id="cart-total">Total: $<span id="total">0.00</span></div>
+                <div class="cart-buttons">
+                    <button id="place-order-btn" class="action-button order-btn">Place Order</button>
+                </div>
             </div>
-            <div id="cart-items"></div>
-            <div id="cart-total">Total: $<span id="total">0.00</span></div>
-            <div class="cart-buttons">
-                <button id="clear-cart-btn" class="action-button clear-btn">Clear Cart</button>
-                <button id="place-order-btn" class="action-button order-btn">Place Order</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Bill Tab -->
-    <div id="bill" class="tab-content">
-        <div class="bill-section">
-            <h2>Your Bill</h2>
-            <div id="bill-container">
-                <!-- Bill will be displayed here when order is delivered -->
+            <!-- Previous Orders Section -->
+            <div id="orders-container"></div>
+        </div>
+
+        <div id="orders-section" class="orders-section">
+            <h2>Your Orders</h2>
+            <div class="orders-container">
+                <!-- Orders will be displayed here -->
             </div>
         </div>
     </div>
