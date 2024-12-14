@@ -171,15 +171,30 @@ function placeOrder() {
         tableId: tableId,
         items: [...cart],
         total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        status: 'active',
+        status: 'processing',
         orderTime: new Date().toLocaleString()
     };
+
+    // Disable the order button and show processing state
+    const orderBtn = document.getElementById('place-order-btn');
+    orderBtn.disabled = true;
+    orderBtn.textContent = 'Processing...';
 
     // Add order to Firebase
     database.ref('orders').push(order)
         .then((ref) => {
-            // Don't clear the cart immediately
-            alert('Order placed successfully!');
+            // Show success message
+            const successMessage = document.createElement('div');
+            successMessage.className = 'success-message';
+            successMessage.textContent = 'Order placed successfully!';
+            orderBtn.parentNode.insertBefore(successMessage, orderBtn.nextSibling);
+
+            // Remove success message after 3 seconds
+            setTimeout(() => {
+                successMessage.remove();
+                orderBtn.disabled = false;
+                orderBtn.textContent = 'Place Order';
+            }, 3000);
             
             // Update the orders display
             loadOrders();
@@ -190,6 +205,8 @@ function placeOrder() {
         .catch(error => {
             console.error('Error placing order:', error);
             alert('Error placing order. Please try again.');
+            orderBtn.disabled = false;
+            orderBtn.textContent = 'Place Order';
         });
 }
 
@@ -229,10 +246,12 @@ function updateOrdersUI(orders) {
             </div>`
         ).join('');
 
+        const statusText = order.status === 'processing' ? 'Processing...' : order.status;
+        
         orderElement.innerHTML = `
             <div class="order-header">
                 <span class="order-time">${order.orderTime}</span>
-                <span class="order-status ${order.status}">${order.status}</span>
+                <span class="order-status ${order.status}">${statusText}</span>
             </div>
             <div class="order-items">${items}</div>
             <div class="order-total">Total: $${order.total.toFixed(2)}</div>
@@ -241,3 +260,24 @@ function updateOrdersUI(orders) {
         ordersContainer.appendChild(orderElement);
     });
 }
+
+const style = document.createElement('style');
+style.textContent = `
+    .success-message {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px;
+        border-radius: 4px;
+        text-align: center;
+        margin-top: 10px;
+        animation: fadeInOut 3s forwards;
+    }
+
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-10px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-10px); }
+    }
+`;
+document.head.appendChild(style);
