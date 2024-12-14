@@ -192,14 +192,12 @@ function placeOrder() {
             updateCartDisplay();
             updateFloatingCart();
             
-            // Switch to orders tab to show the processing animation
+            // Switch to orders tab to show the processing status
             document.querySelector('[data-tab="orders"]').click();
             
-            // Enable the order button after 2 seconds
-            setTimeout(() => {
-                orderBtn.disabled = false;
-                orderBtn.textContent = 'Place Order';
-            }, 2000);
+            // Re-enable the order button
+            orderBtn.disabled = false;
+            orderBtn.textContent = 'Place Order';
         })
         .catch(error => {
             console.error('Error placing order:', error);
