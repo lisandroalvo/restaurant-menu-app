@@ -826,7 +826,6 @@ audio {
     font-size: 1.2em;
     font-weight: bold;
     margin: 20px 0;
-    text-align: right;
 }
 
 .action-button {
@@ -1208,7 +1207,6 @@ audio {
     background: #f8f9fa;
     border-radius: 6px;
     padding: 15px;
-    margin-bottom: 20px;
     border-left: 4px solid #4CAF50;
 }
 
@@ -1273,135 +1271,4 @@ audio {
     .orders-section {
         margin: 10px;
     }
-}
-
-/* Toast Notification */
-.toast-notification {
-    position: fixed;
-    top: -100px; /* Start off-screen */
-    left: 50%;
-    transform: translateX(-50%);
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    padding: 15px 20px;
-    z-index: 1000;
-    transition: top 0.3s ease-in-out;
-    min-width: 300px;
-}
-
-.toast-notification.show {
-    top: 20px;
-}
-
-.toast-content {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.spinner {
-    color: #4CAF50;
-    font-size: 24px;
-}
-
-.toast-message {
-    flex-grow: 1;
-}
-
-.toast-title {
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.toast-status {
-    color: #666;
-}
-
-/* Status Colors */
-.status-pending {
-    color: #ffd700;
-}
-
-.status-preparing {
-    color: #ff9800;
-}
-
-.status-ready {
-    color: #4CAF50;
-}
-
-.status-delivered {
-    color: #2196F3;
-}
-
-/* Bill Section */
-.bill-section {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.bill-section h2 {
-    color: #333;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #f0f0f0;
-}
-
-.bill-card {
-    background: #f8f9fa;
-    border-radius: 6px;
-    padding: 20px;
-    margin-bottom: 20px;
-    border-left: 4px solid #2196F3;
-}
-
-.bill-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.bill-time {
-    color: #666;
-    font-size: 0.9em;
-}
-
-.bill-items {
-    margin: 15px 0;
-}
-
-.bill-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.bill-total {
-    margin-top: 15px;
-    font-weight: bold;
-    text-align: right;
-    font-size: 1.1em;
-}
-
-.pay-button {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 4px;
-    cursor: pointer;
-    float: right;
-    margin-top: 10px;
-    transition: background-color 0.2s;
-}
-
-.pay-button:hover {
-    background-color: #45a049;
 }

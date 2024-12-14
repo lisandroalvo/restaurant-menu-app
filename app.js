@@ -288,85 +288,6 @@ function loadUserOrders() {
         });
 }
 
-// Toast notification functions
-function showToast(status) {
-    const toast = document.getElementById('toast-notification');
-    const statusElement = toast.querySelector('.toast-status');
-    const spinner = toast.querySelector('.spinner i');
-    
-    // Update status text and color
-    statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-    statusElement.className = 'toast-status status-' + status;
-    
-    // Show/hide spinner based on status
-    if (status === 'delivered') {
-        spinner.style.display = 'none';
-    } else {
-        spinner.style.display = 'inline-block';
-    }
-    
-    // Show toast
-    toast.classList.add('show');
-    
-    // Hide toast after status is delivered
-    if (status === 'delivered') {
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
-    }
-}
-
-// Listen for order status updates
-function listenToOrderStatus(orderId) {
-    database.ref('orders/' + orderId).on('value', snapshot => {
-        const order = snapshot.val();
-        if (!order) return;
-
-        showToast(order.status);
-
-        // If delivered, move to bill section
-        if (order.status === 'delivered') {
-            // Remove the listener
-            database.ref('orders/' + orderId).off();
-            // Add to bill section
-            addToBill(order);
-            // Switch to bill tab
-            document.querySelector('[data-tab="bill"]').click();
-        }
-    });
-}
-
-// Add order to bill section
-function addToBill(order) {
-    const billContainer = document.getElementById('bill-container');
-    const billCard = document.createElement('div');
-    billCard.className = 'bill-card';
-    
-    // Calculate total
-    const total = order.items.reduce((sum, item) => 
-        sum + (item.price * item.quantity), 0);
-    
-    billCard.innerHTML = `
-        <div class="bill-header">
-            <span>Table ${order.tableId}</span>
-            <span class="bill-time">${order.orderTime}</span>
-        </div>
-        <div class="bill-items">
-            ${order.items.map(item => `
-                <div class="bill-item">
-                    <span>${item.quantity}x ${item.name}</span>
-                    <span>$${(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-            `).join('')}
-        </div>
-        <div class="bill-total">Total: $${total.toFixed(2)}</div>
-        <button class="pay-button" onclick="requestBill('${order.id}')">Request Bill</button>
-    `;
-    
-    billContainer.appendChild(billCard);
-}
-
-// Place order function
 function placeOrder() {
     const cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
     if (cartItems.length === 0) {
@@ -393,15 +314,13 @@ function placeOrder() {
     
     newOrderRef.set(orderData)
         .then(() => {
-            // Clear cart
+            // Clear cart after successful order
             localStorage.removeItem('cartItems');
             updateCart();
+            alert('Order placed successfully!');
             
-            // Show initial toast
-            showToast('pending');
-            
-            // Start listening for status updates
-            listenToOrderStatus(newOrderRef.key);
+            // Switch to orders tab to show the new order
+            document.querySelector('[data-tab="orders"]').click();
         })
         .catch(error => {
             console.error('Error placing order:', error);
@@ -409,24 +328,11 @@ function placeOrder() {
         });
 }
 
-// Request bill function
-function requestBill(orderId) {
-    database.ref('orders/' + orderId).update({
-        billRequested: true,
-        billRequestTime: Date.now()
-    })
-    .then(() => {
-        alert('Bill requested! A waiter will bring it to your table shortly.');
-    })
-    .catch(error => {
-        console.error('Error requesting bill:', error);
-        alert('Error requesting bill. Please try again or call a waiter.');
-    });
-}
-
-// Initialize everything
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Firebase (your existing code)
+function initialize() {
+    // Existing initialization code...
+    
+    // Load user's orders
+    loadUserOrders();
     
     // Add tab switching functionality
     document.querySelectorAll('.tab-button').forEach(button => {
@@ -445,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.classList.add('active');
         });
     });
-    
-    // Your other initialization code...
-});
+}
+
+// Call initialize when document is ready
+document.addEventListener('DOMContentLoaded', initialize);
