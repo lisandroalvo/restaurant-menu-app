@@ -316,15 +316,8 @@ function listenToOrderStatus(orderId) {
 
         showToast(order.status);
 
-        // If delivered, move to bill section
-        if (order.status === 'delivered') {
-            // Remove the listener
-            database.ref('orders/' + orderId).off();
-            // Add to bill section
-            addToBill({...order, id: orderId});
-            // Switch to bill tab
-            document.querySelector('[data-tab="bill"]').click();
-        }
+        // Update orders display
+        loadOrders();
     });
 }
 
@@ -394,6 +387,9 @@ function placeOrder() {
             
             // Start listening for status updates
             listenToOrderStatus(newOrderRef.key);
+            
+            // Update orders display
+            loadOrders();
         })
         .catch(error => {
             console.error('Error placing order:', error);
