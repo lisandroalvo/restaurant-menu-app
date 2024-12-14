@@ -16,6 +16,7 @@ const database = firebase.database();
 // Cart management
 let cart = [];
 let total = 0;
+let currentOrderId = null;
 
 // DOM Elements
 document.addEventListener('DOMContentLoaded', function() {
@@ -172,7 +173,8 @@ function placeOrder() {
     orderBtn.textContent = 'Processing...';
 
     const tableId = document.getElementById('table-number').textContent;
-    const orderId = database.ref('orders').push().key; // Generate order ID first
+    const orderId = database.ref('orders').push().key;
+    currentOrderId = orderId; // Store the current order ID
     
     const order = {
         id: orderId,
@@ -192,12 +194,15 @@ function placeOrder() {
             updateCartDisplay();
             updateFloatingCart();
             
-            // Switch to orders tab to show the processing status
-            document.querySelector('[data-tab="orders"]').click();
+            // Show the status bar with processing state
+            showOrderStatus('processing', 'Processing your order...');
             
             // Re-enable the order button
             orderBtn.disabled = false;
             orderBtn.textContent = 'Place Order';
+
+            // Switch to orders tab
+            document.querySelector('[data-tab="orders"]').click();
         })
         .catch(error => {
             console.error('Error placing order:', error);
@@ -211,19 +216,90 @@ function loadOrders() {
     const tableId = document.getElementById('table-number').textContent;
     const ordersRef = database.ref('orders');
     
-    // Listen for changes in orders
     ordersRef.orderByChild('tableId')
         .equalTo(tableId)
         .on('value', snapshot => {
             const orders = [];
             snapshot.forEach(childSnapshot => {
-                orders.push({
+                const order = {
                     id: childSnapshot.key,
                     ...childSnapshot.val()
-                });
+                };
+                orders.push(order);
+                
+                // Update status bar if this is the current order
+                if (order.id === currentOrderId) {
+                    updateOrderStatusBar(order);
+                }
             });
             updateOrdersUI(orders);
         });
+}
+
+function updateOrderStatusBar(order) {
+    if (!order) return;
+
+    let statusText = '';
+    let statusClass = order.status;
+
+    switch (order.status) {
+        case 'processing':
+            statusText = 'Processing your order...';
+            break;
+        case 'preparing':
+            statusText = 'Chef is preparing your order';
+            break;
+        case 'ready':
+            statusText = 'Your order is ready for pickup!';
+            break;
+        case 'delivered':
+            statusText = 'Order delivered';
+            // Hide status bar after 5 seconds when delivered
+            setTimeout(() => {
+                hideOrderStatus();
+                currentOrderId = null;
+            }, 5000);
+            break;
+    }
+
+    showOrderStatus(statusClass, statusText);
+}
+
+function showOrderStatus(statusClass, statusText) {
+    const statusBar = document.getElementById('order-status-bar');
+    const statusContent = statusBar.querySelector('.status-content');
+    
+    // Update status content
+    statusContent.innerHTML = `
+        <div class="status-icon">
+            ${statusClass === 'processing' ? 
+                '<div class="status-spinner"></div>' :
+                getStatusIcon(statusClass)}
+        </div>
+        <div class="status-text">${statusText}</div>
+    `;
+    
+    // Update status bar class
+    statusBar.className = `order-status-bar ${statusClass}`;
+    statusBar.classList.remove('hidden');
+}
+
+function hideOrderStatus() {
+    const statusBar = document.getElementById('order-status-bar');
+    statusBar.classList.add('hidden');
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case 'preparing':
+            return '<i class="fas fa-utensils"></i>';
+        case 'ready':
+            return '<i class="fas fa-check"></i>';
+        case 'delivered':
+            return '<i class="fas fa-check-double"></i>';
+        default:
+            return '';
+    }
 }
 
 function updateOrdersUI(orders) {
@@ -395,6 +471,34 @@ style.textContent = `
         text-align: center;
         color: #666;
         padding: 20px;
+    }
+
+    .order-status-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #fff;
+        padding: 15px;
+        border-top: 1px solid #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .order-status-bar.hidden {
+        transform: translateY(100%);
+    }
+
+    .status-spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid #ffd700;
+        border-top: 3px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
     }
 `;
 document.head.appendChild(style);
