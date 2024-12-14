@@ -826,6 +826,7 @@ audio {
     font-size: 1.2em;
     font-weight: bold;
     margin: 20px 0;
+    text-align: right;
 }
 
 .action-button {
@@ -1179,4 +1180,116 @@ audio {
 .order-time {
     color: #6c757d;
     font-size: 0.9em;
+}
+
+/* Orders styling */
+.order-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 15px 0;
+    padding: 15px;
+    transition: all 0.3s ease;
+}
+
+.order-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.order-time {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.order-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.order-status.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.order-status.completed {
+    background-color: #9e9e9e;
+    color: white;
+}
+
+.order-items {
+    margin: 10px 0;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    color: #333;
+}
+
+.order-total {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+    font-weight: bold;
+    text-align: right;
+}
+
+/* Cart styling */
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.cart-item button {
+    background: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.cart-total {
+    margin-top: 15px;
+    padding: 15px;
+    border-top: 1px solid #eee;
+    font-weight: bold;
+    text-align: right;
+}
+
+.order-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 15px;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.order-btn:hover {
+    background-color: #45a049;
 }

@@ -58,7 +58,7 @@ function initializeEventListeners() {
             const menuItem = button.closest('.menu-item');
             const name = menuItem.getAttribute('data-name');
             const price = parseFloat(menuItem.getAttribute('data-price'));
-            addToCart({name, price});
+            addToCart({name, price, quantity: 1});
             switchTab('orders'); // Switch to orders tab after adding item
         });
     });
@@ -118,7 +118,7 @@ function updateFloatingCart() {
 
 function addToCart(item) {
     cart.push(item);
-    total += item.price;
+    total += item.price * item.quantity;
     updateCartDisplay();
     updateFloatingCart();
 }
@@ -134,8 +134,8 @@ function updateCartDisplay() {
         const cartItem = document.createElement('div');
         cartItem.className = 'cart-item';
         cartItem.innerHTML = `
-            <span>${item.name}</span>
-            <span>$${item.price.toFixed(2)}</span>
+            <span>${item.quantity}x ${item.name}</span>
+            <span>$${(item.price * item.quantity).toFixed(2)}</span>
             <button onclick="removeFromCart(${index})" class="remove-item">×</button>
         `;
         cartItems.appendChild(cartItem);
@@ -146,7 +146,7 @@ function updateCartDisplay() {
 
 function removeFromCart(index) {
     if (index >= 0 && index < cart.length) {
-        total -= cart[index].price;
+        total -= cart[index].price * cart[index].quantity;
         cart.splice(index, 1);
         updateCartDisplay();
         updateFloatingCart();
@@ -160,96 +160,84 @@ function clearCart() {
     updateFloatingCart();
 }
 
-function loadOrders() {
-    const ordersContainer = document.getElementById('orders-container');
-    if (!window.tableId || !ordersContainer) return;
-
-    // Create a query for this table's orders
-    database.ref('orders')
-        .orderByChild('tableId')
-        .equalTo(window.tableId)
-        .on('value', function(snapshot) {
-            const orders = [];
-            
-            snapshot.forEach(childSnapshot => {
-                const order = childSnapshot.val();
-                // Only include non-history orders
-                if (order.status !== 'completed') {
-                    orders.push({
-                        id: childSnapshot.key,
-                        ...order
-                    });
-                }
-            });
-
-            if (orders.length === 0) {
-                ordersContainer.innerHTML = '<p>No active orders</p>';
-                return;
-            }
-
-            // Sort by timestamp, newest first
-            orders.sort((a, b) => b.timestamp - a.timestamp);
-            updateOrdersUI(orders);
-        });
-}
-
-function updateOrdersUI(orders) {
-    const ordersContainer = document.getElementById('orders-container');
-    
-    // Clear existing orders
-    ordersContainer.innerHTML = '';
-    
-    // Display each order
-    orders.forEach(order => {
-        const orderElement = document.createElement('div');
-        orderElement.className = 'order-card';
-        orderElement.id = `order-${order.id}`;
-        
-        const items = order.items.map(item => `
-            <div class="order-item">
-                <span>${item.name}</span>
-                <span>$${item.price.toFixed(2)}</span>
-            </div>
-        `).join('');
-        
-        orderElement.innerHTML = `
-            <div class="order-header">
-                <span class="order-id">Order #${order.id.slice(-4)}</span>
-                <span class="order-status ${order.status}">${order.status}</span>
-            </div>
-            <div class="order-items">${items}</div>
-            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
-            <div class="order-time">Ordered at: ${order.orderTime}</div>
-        `;
-        
-        ordersContainer.appendChild(orderElement);
-    });
-}
-
 function placeOrder() {
-    if (!window.tableId || cart.length === 0) {
-        alert('Please add items to your cart before placing an order.');
+    if (cart.length === 0) {
+        alert('Your cart is empty!');
         return;
     }
 
+    const tableId = document.getElementById('table-number').textContent;
     const order = {
-        tableId: window.tableId,
-        items: cart,
-        total: total,
-        status: 'pending',
-        timestamp: Date.now(),
+        tableId: tableId,
+        items: [...cart],
+        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        status: 'active',
         orderTime: new Date().toLocaleString()
     };
 
     // Add order to Firebase
     database.ref('orders').push(order)
-        .then(() => {
-            clearCart();
+        .then((ref) => {
+            // Don't clear the cart immediately
             alert('Order placed successfully!');
+            
+            // Update the orders display
+            loadOrders();
+            
+            // Switch to orders tab
             document.querySelector('[data-tab="orders"]').click();
         })
         .catch(error => {
             console.error('Error placing order:', error);
             alert('Error placing order. Please try again.');
         });
+}
+
+function loadOrders() {
+    const tableId = document.getElementById('table-number').textContent;
+    const ordersRef = database.ref('orders');
+    
+    ordersRef.orderByChild('tableId')
+        .equalTo(tableId)
+        .on('value', snapshot => {
+            const orders = [];
+            snapshot.forEach(childSnapshot => {
+                orders.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+            updateOrdersUI(orders);
+        });
+}
+
+function updateOrdersUI(orders) {
+    const ordersContainer = document.getElementById('orders-container');
+    ordersContainer.innerHTML = '<h3>Order History</h3>';
+
+    // Sort orders by time, newest first
+    orders.sort((a, b) => new Date(b.orderTime) - new Date(a.orderTime));
+
+    orders.forEach(order => {
+        const orderElement = document.createElement('div');
+        orderElement.className = `order-card ${order.status}`;
+        
+        const items = order.items.map(item => 
+            `<div class="order-item">
+                <span>${item.quantity}x ${item.name}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+            </div>`
+        ).join('');
+
+        orderElement.innerHTML = `
+            <div class="order-header">
+                <span class="order-time">${order.orderTime}</span>
+                <span class="order-status ${order.status}">${order.status}</span>
+            </div>
+            <div class="order-items">${items}</div>
+            <div class="order-total">Total: $${order.total.toFixed(2)}</div>
+        `;
+
+        ordersContainer.appendChild(orderElement);
+    });
 }
