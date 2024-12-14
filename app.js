@@ -194,8 +194,8 @@ function placeOrder() {
             updateCartDisplay();
             updateFloatingCart();
             
-            // Show the status bar with processing state
-            showOrderStatus('processing', 'Processing your order...');
+            // Show the status tracker
+            updateStatusTracker('processing', 'Processing your order...');
             
             // Re-enable the order button
             orderBtn.disabled = false;
@@ -209,6 +209,7 @@ function placeOrder() {
             alert('Error placing order. Please try again.');
             orderBtn.disabled = false;
             orderBtn.textContent = 'Place Order';
+            hideStatusTracker();
         });
 }
 
@@ -216,6 +217,7 @@ function loadOrders() {
     const tableId = document.getElementById('table-number').textContent;
     const ordersRef = database.ref('orders');
     
+    // Listen for changes in orders
     ordersRef.orderByChild('tableId')
         .equalTo(tableId)
         .on('value', snapshot => {
@@ -227,66 +229,64 @@ function loadOrders() {
                 };
                 orders.push(order);
                 
-                // Update status bar if this is the current order
+                // Update status tracker if this is the current order
                 if (order.id === currentOrderId) {
-                    updateOrderStatusBar(order);
+                    updateStatusForCurrentOrder(order);
                 }
             });
             updateOrdersUI(orders);
         });
 }
 
-function updateOrderStatusBar(order) {
+function updateStatusForCurrentOrder(order) {
     if (!order) return;
 
-    let statusText = '';
-    let statusClass = order.status;
-
+    let message = '';
     switch (order.status) {
         case 'processing':
-            statusText = 'Processing your order...';
+            message = 'Processing your order...';
             break;
         case 'preparing':
-            statusText = 'Chef is preparing your order';
+            message = 'Chef is preparing your order';
             break;
         case 'ready':
-            statusText = 'Your order is ready for pickup!';
+            message = 'Your order is ready for pickup!';
             break;
         case 'delivered':
-            statusText = 'Order delivered';
-            // Hide status bar after 5 seconds when delivered
+            message = 'Order delivered';
+            // Hide status after delivery
             setTimeout(() => {
-                hideOrderStatus();
+                hideStatusTracker();
                 currentOrderId = null;
             }, 5000);
             break;
     }
 
-    showOrderStatus(statusClass, statusText);
+    updateStatusTracker(order.status, message);
 }
 
-function showOrderStatus(statusClass, statusText) {
-    const statusBar = document.getElementById('order-status-bar');
-    const statusContent = statusBar.querySelector('.status-content');
+function updateStatusTracker(status, message) {
+    const tracker = document.getElementById('status-tracker');
+    const statusContent = tracker.querySelector('.status-content');
     
-    // Update status content
-    statusContent.innerHTML = `
-        <div class="status-icon">
-            ${statusClass === 'processing' ? 
-                '<div class="status-spinner"></div>' :
-                getStatusIcon(statusClass)}
-        </div>
-        <div class="status-text">${statusText}</div>
-    `;
+    // Update status icon
+    const statusIcon = statusContent.querySelector('.status-icon');
+    statusIcon.innerHTML = status === 'processing' ? 
+        '<div class="spinner"></div>' : 
+        getStatusIcon(status);
     
-    // Update status bar class
-    statusBar.className = `order-status-bar ${statusClass}`;
-    statusBar.classList.remove('hidden');
+    // Update message
+    const statusMessage = statusContent.querySelector('.status-message');
+    statusMessage.textContent = message;
+    
+    // Update tracker class and show it
+    tracker.className = `status-tracker ${status}`;
+    tracker.classList.remove('hidden');
 }
 
-function hideOrderStatus() {
-    const statusBar = document.getElementById('order-status-bar');
-    statusBar.classList.add('hidden');
+function hideStatusTracker() {
+    const tracker = document.getElementById('status-tracker');
+    tracker.classList.add('hidden');
 }
 
 function getStatusIcon(status) {
@@ -298,7 +298,7 @@ function getStatusIcon(status) {
         case 'delivered':
             return '<i class="fas fa-check-double"></i>';
         default:
-            return '';
+            return '<div class="spinner"></div>';
     }
 }
 
@@ -473,7 +473,7 @@ style.textContent = `
         padding: 20px;
     }
 
-    .order-status-bar {
+    .status-tracker {
         position: fixed;
         bottom: 0;
         left: 0;
@@ -488,17 +488,140 @@ style.textContent = `
         transition: transform 0.3s ease-in-out;
     }
 
-    .order-status-bar.hidden {
+    .status-tracker.hidden {
         transform: translateY(100%);
     }
 
-    .status-spinner {
+    .status-icon {
         width: 24px;
         height: 24px;
-        border: 3px solid #ffd700;
-        border-top: 3px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .status-message {
+        font-size: 16px;
+        font-weight: bold;
     }
 `;
 document.head.appendChild(style);
+
+let currentOrderId = null;
+
+// Add this to your placeOrder function, right after updateFloatingCart();
+function placeOrder() {
+    // ... existing code ...
+    
+    // Add order to Firebase
+    database.ref(`orders/${orderId}`).set(order)
+        .then(() => {
+            cart = [];
+            total = 0;
+            updateCartDisplay();
+            updateFloatingCart();
+            
+            // Show the status tracker
+            updateStatusTracker('processing', 'Processing your order...');
+            
+            orderBtn.disabled = false;
+            orderBtn.textContent = 'Place Order';
+            document.querySelector('[data-tab="orders"]').click();
+        })
+        .catch(error => {
+            console.error('Error placing order:', error);
+            alert('Error placing order. Please try again.');
+            orderBtn.disabled = false;
+            orderBtn.textContent = 'Place Order';
+            hideStatusTracker();
+        });
+}
+
+// Add these new functions
+function updateStatusForCurrentOrder(order) {
+    if (!order) return;
+
+    let message = '';
+    switch (order.status) {
+        case 'processing':
+            message = 'Processing your order...';
+            break;
+        case 'preparing':
+            message = 'Chef is preparing your order';
+            break;
+        case 'ready':
+            message = 'Your order is ready for pickup!';
+            break;
+        case 'delivered':
+            message = 'Order delivered';
+            setTimeout(() => {
+                hideStatusTracker();
+                currentOrderId = null;
+            }, 5000);
+            break;
+    }
+
+    updateStatusTracker(order.status, message);
+}
+
+function updateStatusTracker(status, message) {
+    const tracker = document.getElementById('status-tracker');
+    const statusContent = tracker.querySelector('.status-content');
+    
+    // Update status icon
+    const statusIcon = statusContent.querySelector('.status-icon');
+    statusIcon.innerHTML = status === 'processing' ? 
+        '<div class="spinner"></div>' : 
+        getStatusIcon(status);
+    
+    // Update message
+    const statusMessage = statusContent.querySelector('.status-message');
+    statusMessage.textContent = message;
+    
+    // Update tracker class and show it
+    tracker.className = `status-tracker ${status}`;
+    tracker.classList.remove('hidden');
+}
+
+function hideStatusTracker() {
+    const tracker = document.getElementById('status-tracker');
+    tracker.classList.add('hidden');
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case 'preparing':
+            return '<i class="fas fa-utensils"></i>';
+        case 'ready':
+            return '<i class="fas fa-check"></i>';
+        case 'delivered':
+            return '<i class="fas fa-check-double"></i>';
+        default:
+            return '<div class="spinner"></div>';
+    }
+}
+
+// Modify your loadOrders function to include this
+function loadOrders() {
+    const tableId = document.getElementById('table-number').textContent;
+    const ordersRef = database.ref('orders');
+    
+    ordersRef.orderByChild('tableId')
+        .equalTo(tableId)
+        .on('value', snapshot => {
+            const orders = [];
+            snapshot.forEach(childSnapshot => {
+                const order = {
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                };
+                orders.push(order);
+                
+                // Update status tracker if this is the current order
+                if (order.id === currentOrderId) {
+                    updateStatusForCurrentOrder(order);
+                }
+            });
+            updateOrdersUI(orders);
+        });
+}
